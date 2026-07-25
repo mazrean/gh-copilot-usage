@@ -488,6 +488,163 @@ func floatsClose(a, b float64) bool {
 	return d < eps
 }
 
+// makeDBWithTurnDetail creates a session-store-like DB whose
+// assistant_usage_events and turns tables include the per-event detail
+// columns (token counts, latency, finish_reason) and turn content columns
+// (assistant_response, timestamp) added together in a later session-store.db
+// schema version.
+func makeDBWithTurnDetail(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session-store.db")
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE assistant_usage_events (
+		id INTEGER PRIMARY KEY,
+		session_id TEXT, turn_index INTEGER, agent_id TEXT, model TEXT,
+		input_tokens INTEGER, output_tokens INTEGER, cache_read_tokens INTEGER,
+		cache_write_tokens INTEGER, reasoning_tokens INTEGER,
+		total_nano_aiu INTEGER, duration_ms INTEGER, time_to_first_token_ms REAL,
+		finish_reason TEXT, created_at TEXT)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE sessions (
+		id TEXT PRIMARY KEY, cwd TEXT, repository TEXT, branch TEXT,
+		summary TEXT, created_at TEXT, updated_at TEXT)`); err != nil {
+		t.Fatalf("create sessions: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE turns (
+		id INTEGER PRIMARY KEY, session_id TEXT, turn_index INTEGER,
+		user_message TEXT, assistant_response TEXT, timestamp TEXT)`); err != nil {
+		t.Fatalf("create turns: %v", err)
+	}
+	return path
+}
+
+// insertUsageEventDetail adds an assistant_usage_events row with per-event
+// detail columns populated.
+func insertUsageEventDetail(t *testing.T, path, sessionID string, turnIndex int, model string,
+	input, output, cacheRead, cacheWrite, reasoning, nanoAIU, durationMs int64, ttft float64, finishReason, createdAt string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(
+		`INSERT INTO assistant_usage_events(
+			session_id, turn_index, model, input_tokens, output_tokens,
+			cache_read_tokens, cache_write_tokens, reasoning_tokens,
+			total_nano_aiu, duration_ms, time_to_first_token_ms, finish_reason, created_at)
+		 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		sessionID, turnIndex, model, input, output, cacheRead, cacheWrite, reasoning,
+		nanoAIU, durationMs, ttft, finishReason, createdAt); err != nil {
+		t.Fatalf("insert usage event detail: %v", err)
+	}
+}
+
+// insertTurnDetail adds a turns row with assistant_response/timestamp populated.
+func insertTurnDetail(t *testing.T, path, sessionID string, turnIndex int, userMessage, assistantResponse, timestamp string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(
+		`INSERT INTO turns(session_id, turn_index, user_message, assistant_response, timestamp) VALUES(?,?,?,?,?)`,
+		sessionID, turnIndex, userMessage, assistantResponse, timestamp); err != nil {
+		t.Fatalf("insert turn detail: %v", err)
+	}
+}
+
+func TestSessionDetailWithTurnDetailColumns(t *testing.T) {
+	path := makeDBWithTurnDetail(t)
+	insertSession(t, path, "s1", "Fix login bug", "", "")
+	insertUsageEventDetail(t, path, "s1", 0, "gpt-5-mini",
+		100, 50, 20, 0, 10, 500_000_000, 1200, 300.5, "stop", "2026-07-25T01:00:00.000Z")
+	insertUsageEventDetail(t, path, "s1", 0, "gpt-5-mini",
+		200, 60, 0, 5, 0, 300_000_000, 800, 150.0, "tool_calls", "2026-07-25T01:00:05.000Z")
+	insertTurnDetail(t, path, "s1", 0, "fix the login bug please", "Done, fixed it.", "2026-07-25T01:00:10.000Z")
+
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	d, err := st.SessionDetail(context.Background(), "s1")
+	if err != nil {
+		t.Fatalf("session detail: %v", err)
+	}
+	if len(d.Turns) != 1 {
+		t.Fatalf("turns = %+v, want 1", d.Turns)
+	}
+	turn := d.Turns[0]
+	if turn.AssistantResponse != "Done, fixed it." {
+		t.Fatalf("assistantResponse = %q", turn.AssistantResponse)
+	}
+	if turn.Timestamp != "2026-07-25T01:00:10.000Z" {
+		t.Fatalf("timestamp = %q", turn.Timestamp)
+	}
+	if turn.DurationMs != 2000 {
+		t.Fatalf("durationMs = %d, want 2000", turn.DurationMs)
+	}
+	wantTTFT := (300.5 + 150.0) / 2
+	if !floatsClose(turn.TimeToFirstTokenMs, wantTTFT) {
+		t.Fatalf("ttft = %v, want %v", turn.TimeToFirstTokenMs, wantTTFT)
+	}
+	if turn.FinishReason != "tool_calls" {
+		t.Fatalf("finishReason = %q, want last event's tool_calls", turn.FinishReason)
+	}
+	if len(turn.ByModel) != 1 {
+		t.Fatalf("byModel = %+v, want 1 entry", turn.ByModel)
+	}
+	tok := turn.ByModel[0].Tokens
+	if tok == nil {
+		t.Fatalf("tokens = nil, want populated")
+	}
+	if tok.InputTokens != 300 || tok.OutputTokens != 110 || tok.CacheReadTokens != 20 ||
+		tok.CacheWriteTokens != 5 || tok.ReasoningTokens != 10 {
+		t.Fatalf("tokens = %+v", tok)
+	}
+}
+
+func TestSessionDetailWithoutTurnDetailColumns(t *testing.T) {
+	// makeDB's fixture schema has neither the per-event detail columns nor
+	// the turns content columns, matching an older Copilot CLI session-store.db.
+	path := makeDB(t, nil)
+	insertSession(t, path, "s1", "", "", "")
+	turn0 := 0
+	insertUsageEvent(t, path, "s1", &turn0, "gpt-5-mini", 500_000_000, "2026-07-25T01:00:00.000Z")
+	insertTurn(t, path, "s1", 0, "fix the login bug please")
+
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	d, err := st.SessionDetail(context.Background(), "s1")
+	if err != nil {
+		t.Fatalf("session detail: %v", err)
+	}
+	if len(d.Turns) != 1 {
+		t.Fatalf("turns = %+v, want 1", d.Turns)
+	}
+	turn := d.Turns[0]
+	if turn.AssistantResponse != "" || turn.Timestamp != "" || turn.DurationMs != 0 ||
+		turn.TimeToFirstTokenMs != 0 || turn.FinishReason != "" {
+		t.Fatalf("turn = %+v, want all new fields zero", turn)
+	}
+	if len(turn.ByModel) != 1 || turn.ByModel[0].Tokens != nil {
+		t.Fatalf("byModel = %+v, want Tokens nil (no detail columns)", turn.ByModel)
+	}
+}
+
 func TestUnknownSeriesLabel(t *testing.T) {
 	path := makeDB(t, [][4]any{
 		{"s1", nil, int64(1_000_000_000), "2026-07-25T01:00:00.000Z"},

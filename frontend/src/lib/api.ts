@@ -19,16 +19,33 @@ export interface Usage {
   lastAt: string;
 }
 
+export interface TurnTokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  reasoningTokens: number;
+}
+
 export interface SessionModelUsage {
   model: string;
   aiu: number;
   rows: number;
+  // present only when the session-store.db exposes per-event detail columns.
+  tokens?: TurnTokenUsage;
 }
 
 export interface SessionTurnUsage {
   turnIndex: number;
   aiu: number;
   userMessage: string;
+  // the following are present only when the session-store.db exposes the
+  // corresponding columns (older schemas omit them).
+  assistantResponse?: string;
+  timestamp?: string;
+  durationMs?: number;
+  timeToFirstTokenMs?: number;
+  finishReason?: string;
   byModel: SessionModelUsage[];
 }
 

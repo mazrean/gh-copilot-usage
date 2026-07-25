@@ -11,6 +11,15 @@ export function formatTimestamp(value: string): string {
   return value.slice(0, 16).replace("T", " ");
 }
 
+export function formatDurationMs(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+export function formatTokenCount(n: number): string {
+  return n.toLocaleString();
+}
+
 export interface MonthlyPace {
   daysElapsed: number;
   daysInMonth: number;
