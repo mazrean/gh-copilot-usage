@@ -46,4 +46,4 @@ changelog:
 release:
   github:
     owner: mazrean
-    name: copilot-cli-usage
+    name: gh-copilot-usage
