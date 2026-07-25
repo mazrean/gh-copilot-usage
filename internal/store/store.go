@@ -87,8 +87,9 @@ type Usage struct {
 
 // Store reads AIC usage from a Copilot session-store SQLite DB.
 type Store struct {
-	db      *sql.DB
-	cleanup func()
+	db                *sql.DB
+	cleanup           func()
+	hasTokenBreakdown bool
 }
 
 // DefaultDBPath returns ~/.copilot/session-store.db.
@@ -117,7 +118,12 @@ func Open(path string) (*Store, error) {
 	db, err := sql.Open("sqlite", dsn)
 	if err == nil {
 		if err = probe(db); err == nil {
-			return &Store{db: db}, nil
+			hasBreakdown, herr := hasColumn(db, "assistant_usage_events", "token_details_json")
+			if herr != nil {
+				_ = db.Close()
+				return nil, herr
+			}
+			return &Store{db: db, hasTokenBreakdown: hasBreakdown}, nil
 		}
 		_ = db.Close()
 	}
@@ -142,7 +148,13 @@ func Open(path string) (*Store, error) {
 		os.RemoveAll(tmpDir)
 		return nil, err
 	}
-	return &Store{db: db2, cleanup: func() { os.RemoveAll(tmpDir) }}, nil
+	hasBreakdown, herr := hasColumn(db2, "assistant_usage_events", "token_details_json")
+	if herr != nil {
+		_ = db2.Close()
+		os.RemoveAll(tmpDir)
+		return nil, herr
+	}
+	return &Store{db: db2, cleanup: func() { os.RemoveAll(tmpDir) }, hasTokenBreakdown: hasBreakdown}, nil
 }
 
 // probe verifies the expected table exists.
@@ -155,6 +167,31 @@ func probe(db *sql.DB) error {
 		return fmt.Errorf("assistant_usage_events table not readable: %w", err)
 	}
 	return nil
+}
+
+// hasColumn reports whether table has the given column, so callers can
+// degrade gracefully against session-store.db schemas from older Copilot CLI
+// versions that predate a column. table is always an internal literal, never
+// user input.
+func hasColumn(db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 // copySnapshot copies the DB and its WAL sidecars to dst.
@@ -522,6 +559,106 @@ func (s *Store) SessionDetail(ctx context.Context, id string) (*SessionDetail, e
 		turns = append(turns, *unassigned)
 	}
 	detail.Turns = turns
+
+	return detail, nil
+}
+
+// categoryOrder fixes the display order of known token-cost categories so the
+// frontend can assign stable colors regardless of which categories a given
+// model actually used.
+var categoryOrder = []string{"input", "cache_read", "cache_write", "output"}
+
+func categoryRank(category string) int {
+	for i, c := range categoryOrder {
+		if c == category {
+			return i
+		}
+	}
+	return len(categoryOrder) // unknown/"other" categories sort last
+}
+
+// ModelCategoryUsage is one token-cost category's (input, cached input,
+// cache write, output, ...) AIU contribution for a single model.
+type ModelCategoryUsage struct {
+	Category string  `json:"category"`
+	AIU      float64 `json:"aiu"`
+}
+
+// ModelDetail is the drill-down view for a single model: its total AIU and,
+// when the underlying DB exposes per-event cost breakdown, how that AIU
+// split across token categories.
+type ModelDetail struct {
+	Model      string               `json:"model"`
+	AIU        float64              `json:"aiu"`
+	Rows       int                  `json:"rows"`
+	ByCategory []ModelCategoryUsage `json:"byCategory"`
+}
+
+// ModelDetail returns total AIU/row count and, when available, a per-token-
+// category cost breakdown for one model. Unlike SessionDetail, an unknown
+// model is not an error - it simply reports zero usage, since "model" is a
+// GROUP BY key rather than an entity with its own existence.
+func (s *Store) ModelDetail(ctx context.Context, model string) (*ModelDetail, error) {
+	detail := &ModelDetail{Model: model}
+
+	var nano sql.NullInt64
+	var rows int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(total_nano_aiu), 0), COUNT(*)
+		FROM assistant_usage_events
+		WHERE model = ?`, model).Scan(&nano, &rows)
+	if err != nil {
+		return nil, err
+	}
+	detail.AIU = float64(nano.Int64) / nanoPerAIU
+	detail.Rows = rows
+
+	if !s.hasTokenBreakdown {
+		return detail, nil
+	}
+
+	catRows, err := s.db.QueryContext(ctx, `
+		SELECT COALESCE(je.value ->> 'tokenType', 'other') AS category,
+		       SUM(
+		         CASE WHEN je.value IS NOT NULL
+		              THEN CAST(je.value ->> 'tokenCount' AS REAL) * CAST(je.value ->> 'costPerBatch' AS REAL)
+		                   / NULLIF(CAST(je.value ->> 'batchSize' AS REAL), 0)
+		              ELSE total_nano_aiu
+		         END
+		       ) AS nano
+		FROM assistant_usage_events
+		LEFT JOIN json_each(
+		  CASE WHEN json_valid(token_details_json) THEN token_details_json ELSE NULL END
+		) je ON 1=1
+		WHERE model = ?
+		GROUP BY category`, model)
+	if err != nil {
+		return nil, err
+	}
+	defer catRows.Close()
+
+	for catRows.Next() {
+		var category string
+		var catNano sql.NullFloat64
+		if err := catRows.Scan(&category, &catNano); err != nil {
+			return nil, err
+		}
+		detail.ByCategory = append(detail.ByCategory, ModelCategoryUsage{
+			Category: category,
+			AIU:      catNano.Float64 / nanoPerAIU,
+		})
+	}
+	if err := catRows.Err(); err != nil {
+		return nil, err
+	}
+
+	sort.Slice(detail.ByCategory, func(i, j int) bool {
+		ri, rj := categoryRank(detail.ByCategory[i].Category), categoryRank(detail.ByCategory[j].Category)
+		if ri != rj {
+			return ri < rj
+		}
+		return detail.ByCategory[i].Category < detail.ByCategory[j].Category
+	})
 
 	return detail, nil
 }

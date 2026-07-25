@@ -46,6 +46,20 @@ export interface SessionDetail {
   turns: SessionTurnUsage[] | null;
 }
 
+export interface ModelCategoryUsage {
+  category: string;
+  aiu: number;
+}
+
+export interface ModelDetail {
+  model: string;
+  aiu: number;
+  rows: number;
+  // null when the underlying session-store.db predates per-category cost
+  // breakdown (token_details_json column).
+  byCategory: ModelCategoryUsage[] | null;
+}
+
 export interface ModelUsage {
   model: string;
   sku: string;
@@ -79,6 +93,10 @@ export function fetchUsage(dimension: Dimension, granularity: Granularity) {
 
 export function fetchSessionDetail(id: string) {
   return fetchJSON<SessionDetail>(`/api/session?id=${encodeURIComponent(id)}`);
+}
+
+export function fetchModelDetail(model: string) {
+  return fetchJSON<ModelDetail>(`/api/model?name=${encodeURIComponent(model)}`);
 }
 
 export function fetchMonthly() {

@@ -31,6 +31,7 @@ const PALETTE = [
 interface ChartDataset {
   label: string;
   sessionId: string | null;
+  modelKey: string | null;
   data: number[];
   backgroundColor: string;
 }
@@ -73,9 +74,11 @@ export class UsageChart extends LitElement {
   #buildData() {
     const usage = this.usage!;
     const isSession = usage.dimension === "session";
+    const isModel = usage.dimension === "model";
     const datasets: ChartDataset[] = usage.series.map((s, i) => ({
       label: s.label || s.key,
       sessionId: isSession && s.key !== "unknown" ? s.key : null,
+      modelKey: isModel && s.key !== "unknown" ? s.key : null,
       data: s.values,
       backgroundColor: PALETTE[i % PALETTE.length],
     }));
@@ -105,7 +108,7 @@ export class UsageChart extends LitElement {
           const el = elements[0];
           const hit = el && (this.chart!.data.datasets[el.datasetIndex] as unknown as ChartDataset);
           const target = event.native?.target as HTMLElement | null;
-          if (target) target.style.cursor = hit?.sessionId ? "pointer" : "default";
+          if (target) target.style.cursor = hit?.sessionId || hit?.modelKey ? "pointer" : "default";
         },
         onClick: (_event, elements) => {
           const el = elements[0];
@@ -115,6 +118,14 @@ export class UsageChart extends LitElement {
             this.dispatchEvent(
               new CustomEvent("session-click", {
                 detail: { sessionId: dataset.sessionId },
+                bubbles: true,
+                composed: true,
+              }),
+            );
+          } else if (dataset.modelKey) {
+            this.dispatchEvent(
+              new CustomEvent("model-click", {
+                detail: { model: dataset.modelKey },
                 bubbles: true,
                 composed: true,
               }),

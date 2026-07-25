@@ -3,10 +3,12 @@ import { customElement, query, state } from "lit/decorators.js";
 import { fetchUsage, type Dimension, type Granularity, type Usage } from "../lib/api.js";
 import type { ToggleOption } from "./usage-toggle-group.js";
 import type { SessionDetailModal } from "./session-detail-modal.js";
+import type { ModelDetailModal } from "./model-detail-modal.js";
 import "./usage-toggle-group.js";
 import "./usage-summary-cards.js";
 import "./usage-chart.js";
 import "./session-detail-modal.js";
+import "./model-detail-modal.js";
 
 const DIMENSION_OPTIONS: ToggleOption[] = [
   { value: "model", label: "モデル別" },
@@ -26,6 +28,7 @@ export class UsageDashboard extends LitElement {
   @state() usage: Usage | null = null;
 
   @query("session-detail-modal") sessionModal!: SessionDetailModal;
+  @query("model-detail-modal") modelModal!: ModelDetailModal;
 
   createRenderRoot() {
     return this;
@@ -55,6 +58,10 @@ export class UsageDashboard extends LitElement {
     this.sessionModal.openSession(e.detail.sessionId);
   }
 
+  #onModelClick(e: CustomEvent<{ model: string }>) {
+    this.modelModal.openModel(e.detail.model);
+  }
+
   render() {
     return html`
       <div class="flex gap-3 flex-wrap mb-5">
@@ -73,8 +80,10 @@ export class UsageDashboard extends LitElement {
       <usage-chart
         .usage=${this.usage}
         @session-click=${(e: CustomEvent<{ sessionId: string }>) => this.#onSessionClick(e)}
+        @model-click=${(e: CustomEvent<{ model: string }>) => this.#onModelClick(e)}
       ></usage-chart>
       <session-detail-modal></session-detail-modal>
+      <model-detail-modal></model-detail-modal>
     `;
   }
 }
