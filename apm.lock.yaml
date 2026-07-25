@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-07-25T00:38:47.549705+00:00'
+generated_at: '2026-07-25T02:19:55.695759+00:00'
 apm_version: 0.26.0
 dependencies:
 - repo_url: mazrean/apm-plackage
@@ -18,6 +18,22 @@ dependencies:
     .claude/rules/conventions.md: sha256:54c6d167efff3a33a4b30febca2fe03a7661774ebea06aabeeb42713b4d05603
     .claude/skills/apm-dependency-common/SKILL.md: sha256:8ed66c44c49f5c3b97328be5ad199d7774b805ade05eac953faf540126a2d9ca
   content_hash: sha256:9aea97fbf4c47630686cfd13adf407ab4b50e8ef91fb1ff5249c8e83487302e4
+- repo_url: mazrean/apm-plackage
+  name: apm-plackage-frontend
+  host: github.com
+  resolved_commit: dcb4719b17f2bf560434a131a6358817960bec9f
+  version: 0.2.0
+  virtual_path: frontend
+  is_virtual: true
+  package_type: apm_package
+  deployed_files:
+  - .claude/rules/frontend-conventions.md
+  - .claude/skills/apm-dependency-frontend
+  - .claude/skills/apm-dependency-frontend/SKILL.md
+  deployed_file_hashes:
+    .claude/rules/frontend-conventions.md: sha256:f25cc9cc426f056aed1b75a3a1f7965e6a5011bce507cf52c9f51fb4a1badf70
+    .claude/skills/apm-dependency-frontend/SKILL.md: sha256:483bf300e014e9ba19b3ccd7a5bc26220915fc44053f3d3fbd68bbfc0fc4b403
+  content_hash: sha256:582b300c050ee497d97895a445c30d6eb6dba2650398fb82e9380621c4ac41b1
 - repo_url: mazrean/apm-plackage
   name: apm-plackage-go
   host: github.com
@@ -50,6 +66,24 @@ dependencies:
     .claude/rules/goreleaser-conventions.md: sha256:e28daa306783f3dc4b395db9f66c0417b75c1110c7dd5f8012a52bf60d77357d
     .claude/skills/apm-dependency-goreleaser/SKILL.md: sha256:e9d49cbb4d9d6f6f9dfcb6e8da9125a7a309e61cf18bc6def94d0b1acb03737a
   content_hash: sha256:13ef0d81679ae454d35686e5e699cf9ec2b6c849ca7d2d2404cf39780e1eaa4a
+- repo_url: chromedevtools/chrome-devtools-mcp
+  name: chrome-devtools-cli
+  host: github.com
+  resolved_commit: e2c19fed80fccd6cadd3b4e45151ac661420e90a
+  version: unknown
+  virtual_path: skills/chrome-devtools-cli
+  is_virtual: true
+  depth: 2
+  resolved_by: mazrean/apm-plackage
+  package_type: claude_skill
+  deployed_files:
+  - .claude/skills/chrome-devtools-cli
+  - .claude/skills/chrome-devtools-cli/SKILL.md
+  - .claude/skills/chrome-devtools-cli/references/installation.md
+  deployed_file_hashes:
+    .claude/skills/chrome-devtools-cli/SKILL.md: sha256:7382e3581eebfce8ccdb1f2f08e725e02f389fb0cc4ac5173dac8ca8272c6b3f
+    .claude/skills/chrome-devtools-cli/references/installation.md: sha256:e1517c49bfd8f22117fcd2cfb2193e082d0e8d0f96d0675619c346f48a1b6e32
+  content_hash: sha256:e12c7315774e0cd597ec7f4669445f20672e8facf6d88e4bc5eaeaf79552c63c
 - repo_url: mazrean/agent-skills
   name: committing-code
   host: github.com
@@ -244,6 +278,40 @@ dependencies:
     .claude/skills/writing-technical-design/references/DEEP-RESEARCH.md: sha256:aa19472c31ca4d2609aab22e43e1154fb157f241f677ff722ce8f93086728faf
     .claude/skills/writing-technical-design/references/EXAMPLES.md: sha256:414a3f03431008220736544fd4f9e7e072ac3bc74fdbf1408eb4f281fe82acb2
   content_hash: sha256:e3307d513bcec3ee9d23273dafadae0d0b28c1954bae3640885b4608ae193501
+- repo_url: microsoft/playwright-cli
+  name: playwright-cli
+  host: github.com
+  resolved_commit: eee5a185c98e6b04d88f580d45a854e9692ab50b
+  version: unknown
+  virtual_path: skills/playwright-cli
+  is_virtual: true
+  depth: 2
+  resolved_by: mazrean/apm-plackage
+  package_type: claude_skill
+  deployed_files:
+  - .claude/skills/playwright-cli
+  - .claude/skills/playwright-cli/SKILL.md
+  - .claude/skills/playwright-cli/references/element-attributes.md
+  - .claude/skills/playwright-cli/references/playwright-tests.md
+  - .claude/skills/playwright-cli/references/request-mocking.md
+  - .claude/skills/playwright-cli/references/running-code.md
+  - .claude/skills/playwright-cli/references/session-management.md
+  - .claude/skills/playwright-cli/references/storage-state.md
+  - .claude/skills/playwright-cli/references/test-generation.md
+  - .claude/skills/playwright-cli/references/tracing.md
+  - .claude/skills/playwright-cli/references/video-recording.md
+  deployed_file_hashes:
+    .claude/skills/playwright-cli/SKILL.md: sha256:29c0b669a524d42b51934d7db9144c1c07a566d0549ae6fb6ccd810e5a3cf61b
+    .claude/skills/playwright-cli/references/element-attributes.md: sha256:bf19aa4671e0a50a0fefa9c790f39124e803060eefe395042b723c29fcb7faa2
+    .claude/skills/playwright-cli/references/playwright-tests.md: sha256:c5b0719fef2cfdff50bd744051b2f9afc119775db4b48e9b2882c1cf3886797c
+    .claude/skills/playwright-cli/references/request-mocking.md: sha256:54e801c9663fc2b6d68ceb058cb1c360724c2499f42acc7852a68e83e5b5f37c
+    .claude/skills/playwright-cli/references/running-code.md: sha256:d95c539a5990b71d02d8bdf1d9414df16191eb6cff95b0063820518b7a13dcb2
+    .claude/skills/playwright-cli/references/session-management.md: sha256:cd3e261b8763bf952f1e371b876cb78d054379afec85482f9250633e1b7e6c44
+    .claude/skills/playwright-cli/references/storage-state.md: sha256:9ac47f9ae4a1aedcd2077f8ac9ab1ba6bee1962cb83ff51adcd36fb6d83b5ec6
+    .claude/skills/playwright-cli/references/test-generation.md: sha256:12f54cfa718d9e559bad918120a4ca4f11c933167713d1b9c5f99872eddaf749
+    .claude/skills/playwright-cli/references/tracing.md: sha256:792e0ac7705e56ac48df84c0f5400221ce86107897c671590a64a4ea6a82508e
+    .claude/skills/playwright-cli/references/video-recording.md: sha256:8555ab5400df0d90e66318aacc0a8a4418fbf872e7463824d55d5c41615abd83
+  content_hash: sha256:823f5cee8a67bf3be400529cf8bce84f7b48023e3c9b06807e4dfaad4091512b
 deployments:
 - kind: project-relative
   target: claude
@@ -254,6 +322,15 @@ deployments:
   - mazrean/apm-plackage/common
   active_owner: mazrean/apm-plackage/common
   content_hash: sha256:54c6d167efff3a33a4b30febca2fe03a7661774ebea06aabeeb42713b4d05603
+- kind: project-relative
+  target: claude
+  value: .claude/rules/frontend-conventions.md
+  runtime: null
+  scope: project
+  owners:
+  - mazrean/apm-plackage/frontend
+  active_owner: mazrean/apm-plackage/frontend
+  content_hash: sha256:f25cc9cc426f056aed1b75a3a1f7965e6a5011bce507cf52c9f51fb4a1badf70
 - kind: project-relative
   target: claude
   value: .claude/rules/go-conventions.md
@@ -292,6 +369,24 @@ deployments:
   content_hash: sha256:8ed66c44c49f5c3b97328be5ad199d7774b805ade05eac953faf540126a2d9ca
 - kind: project-relative
   target: claude
+  value: .claude/skills/apm-dependency-frontend
+  runtime: null
+  scope: project
+  owners:
+  - mazrean/apm-plackage/frontend
+  active_owner: mazrean/apm-plackage/frontend
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/apm-dependency-frontend/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - mazrean/apm-plackage/frontend
+  active_owner: mazrean/apm-plackage/frontend
+  content_hash: sha256:483bf300e014e9ba19b3ccd7a5bc26220915fc44053f3d3fbd68bbfc0fc4b403
+- kind: project-relative
+  target: claude
   value: .claude/skills/apm-dependency-go
   runtime: null
   scope: project
@@ -326,6 +421,33 @@ deployments:
   - mazrean/apm-plackage/goreleaser
   active_owner: mazrean/apm-plackage/goreleaser
   content_hash: sha256:e9d49cbb4d9d6f6f9dfcb6e8da9125a7a309e61cf18bc6def94d0b1acb03737a
+- kind: project-relative
+  target: claude
+  value: .claude/skills/chrome-devtools-cli
+  runtime: null
+  scope: project
+  owners:
+  - chromedevtools/chrome-devtools-mcp/skills/chrome-devtools-cli
+  active_owner: chromedevtools/chrome-devtools-mcp/skills/chrome-devtools-cli
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/chrome-devtools-cli/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - chromedevtools/chrome-devtools-mcp/skills/chrome-devtools-cli
+  active_owner: chromedevtools/chrome-devtools-mcp/skills/chrome-devtools-cli
+  content_hash: sha256:7382e3581eebfce8ccdb1f2f08e725e02f389fb0cc4ac5173dac8ca8272c6b3f
+- kind: project-relative
+  target: claude
+  value: .claude/skills/chrome-devtools-cli/references/installation.md
+  runtime: null
+  scope: project
+  owners:
+  - chromedevtools/chrome-devtools-mcp/skills/chrome-devtools-cli
+  active_owner: chromedevtools/chrome-devtools-mcp/skills/chrome-devtools-cli
+  content_hash: sha256:e1517c49bfd8f22117fcd2cfb2193e082d0e8d0f96d0675619c346f48a1b6e32
 - kind: project-relative
   target: claude
   value: .claude/skills/committing-code
@@ -461,6 +583,105 @@ deployments:
   - mazrean/agent-skills/skills/creating-test-cases
   active_owner: mazrean/agent-skills/skills/creating-test-cases
   content_hash: sha256:e955f4b962d9c486450b489ff8db4c6dc719a3bddd13dbc1f06707b547fcd3a6
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: sha256:29c0b669a524d42b51934d7db9144c1c07a566d0549ae6fb6ccd810e5a3cf61b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli/references/element-attributes.md
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: sha256:bf19aa4671e0a50a0fefa9c790f39124e803060eefe395042b723c29fcb7faa2
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli/references/playwright-tests.md
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: sha256:c5b0719fef2cfdff50bd744051b2f9afc119775db4b48e9b2882c1cf3886797c
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli/references/request-mocking.md
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: sha256:54e801c9663fc2b6d68ceb058cb1c360724c2499f42acc7852a68e83e5b5f37c
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli/references/running-code.md
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: sha256:d95c539a5990b71d02d8bdf1d9414df16191eb6cff95b0063820518b7a13dcb2
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli/references/session-management.md
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: sha256:cd3e261b8763bf952f1e371b876cb78d054379afec85482f9250633e1b7e6c44
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli/references/storage-state.md
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: sha256:9ac47f9ae4a1aedcd2077f8ac9ab1ba6bee1962cb83ff51adcd36fb6d83b5ec6
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli/references/test-generation.md
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: sha256:12f54cfa718d9e559bad918120a4ca4f11c933167713d1b9c5f99872eddaf749
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli/references/tracing.md
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: sha256:792e0ac7705e56ac48df84c0f5400221ce86107897c671590a64a4ea6a82508e
+- kind: project-relative
+  target: claude
+  value: .claude/skills/playwright-cli/references/video-recording.md
+  runtime: null
+  scope: project
+  owners:
+  - microsoft/playwright-cli/skills/playwright-cli
+  active_owner: microsoft/playwright-cli/skills/playwright-cli
+  content_hash: sha256:8555ab5400df0d90e66318aacc0a8a4418fbf872e7463824d55d5c41615abd83
 - kind: project-relative
   target: claude
   value: .claude/skills/releasing-zig-with-goreleaser

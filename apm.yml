@@ -7,3 +7,4 @@ dependencies:
     - mazrean/apm-plackage/common
     - mazrean/apm-plackage/go
     - mazrean/apm-plackage/goreleaser
+    - mazrean/apm-plackage/frontend
