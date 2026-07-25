@@ -153,7 +153,22 @@
     padding: 4px 8px;
   }
   .modal-body { padding: 16px; overflow-y: auto; }
-  .modal-meta { font-size: 0.85rem; color: var(--muted); margin-bottom: 12px; line-height: 1.6; }
+  .modal-meta-list { margin: 0 0 12px; font-size: 0.85rem; }
+  .modal-meta-row {
+    display: flex;
+    gap: 10px;
+    padding: 3px 0;
+  }
+  .modal-meta-row dt {
+    flex: 0 0 7em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .modal-meta-row dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .modal-meta-row dd.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   .modal-section-title { font-size: 0.85rem; font-weight: 600; margin: 16px 0 8px; }
   .model-breakdown-list { list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
   .model-breakdown-list li {
@@ -379,11 +394,17 @@ async function openSessionDetail(sessionId) {
 function renderSessionDetail(d) {
   document.getElementById("session-modal-title").textContent = d.summary || d.id;
 
-  const metaParts = [];
-  if (d.repository) metaParts.push(d.branch ? `${d.repository} (${d.branch})` : d.repository);
-  if (d.cwd) metaParts.push(d.cwd);
-  if (d.createdAt) metaParts.push(`作成: ${d.createdAt.slice(0, 16).replace("T", " ")}`);
-  if (d.updatedAt) metaParts.push(`更新: ${d.updatedAt.slice(0, 16).replace("T", " ")}`);
+  const metaRows = [];
+  if (d.repository) {
+    metaRows.push(["リポジトリ", d.branch ? `${d.repository} (${d.branch})` : d.repository]);
+  }
+  if (d.cwd) metaRows.push(["作業ディレクトリ", d.cwd, "mono"]);
+  if (d.createdAt) metaRows.push(["作成", d.createdAt.slice(0, 16).replace("T", " ")]);
+  if (d.updatedAt) metaRows.push(["更新", d.updatedAt.slice(0, 16).replace("T", " ")]);
+
+  const metaList = metaRows.map(([label, value, cls]) =>
+    `<div class="modal-meta-row"><dt>${escapeHtml(label)}</dt><dd${cls ? ` class="${cls}"` : ""}>${escapeHtml(value)}</dd></div>`
+  ).join("");
 
   const modelList = (d.byModel || []).map((m) =>
     `<li><span>${escapeHtml(m.model)}</span><span>${m.aiu.toFixed(3)} AIU (${m.rows}件)</span></li>`
@@ -399,7 +420,7 @@ function renderSessionDetail(d) {
   `).join("");
 
   document.getElementById("session-modal-body").innerHTML = `
-    <div class="modal-meta">${metaParts.map(escapeHtml).join(" ・ ")}</div>
+    <dl class="modal-meta-list">${metaList}</dl>
     <div class="modal-section-title">モデル別内訳</div>
     <ul class="model-breakdown-list">${modelList || "<li>データがありません</li>"}</ul>
     <div class="modal-section-title">チェックポイント</div>
