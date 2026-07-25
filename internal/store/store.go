@@ -4,14 +4,19 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
+
+// ErrSessionNotFound indicates no sessions row exists for a given session id.
+var ErrSessionNotFound = errors.New("session not found")
 
 // nanoPerAIU is the scale of the total_nano_aiu column: 1 AIU == 1e9 nano_aiu.
 const nanoPerAIU = 1e9
@@ -63,6 +68,7 @@ func (g Granularity) bucketExpr() (string, error) {
 // Series is one stacked series (one model or one session) across all buckets.
 type Series struct {
 	Key    string    `json:"key"`
+	Label  string    `json:"label"`
 	Values []float64 `json:"values"`
 }
 
@@ -266,13 +272,200 @@ func (s *Store) Aggregate(ctx context.Context, dim Dimension, gran Granularity) 
 		for i, b := range bucketOrder {
 			vals[i] = cells[cellKey{b, sk}]
 		}
-		out.Series = append(out.Series, Series{Key: sk, Values: vals})
+		out.Series = append(out.Series, Series{Key: sk, Label: sk, Values: vals})
+	}
+
+	if dim == DimSession {
+		if err := s.fillSessionLabels(ctx, out.Series); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := s.meta(ctx, out); err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+// fillSessionLabels replaces each session series' Label with a human-readable
+// name (the session summary, falling back to "repository (branch)") looked up
+// from the sessions table. Series with no matching row, or no usable name,
+// keep the raw session_id as their Label.
+func (s *Store) fillSessionLabels(ctx context.Context, series []Series) error {
+	ids := make([]string, 0, len(series))
+	for _, sr := range series {
+		if sr.Key != "unknown" {
+			ids = append(ids, sr.Key)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(`
+		SELECT id, summary, repository, branch
+		FROM sessions
+		WHERE id IN (%s)`, strings.Join(placeholders, ","))
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	labels := make(map[string]string, len(ids))
+	for rows.Next() {
+		var id string
+		var summary, repository, branch sql.NullString
+		if err := rows.Scan(&id, &summary, &repository, &branch); err != nil {
+			return err
+		}
+		if label := sessionLabel(summary, repository, branch); label != "" {
+			labels[id] = label
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for i := range series {
+		if label, ok := labels[series[i].Key]; ok {
+			series[i].Label = label
+		}
+	}
+	return nil
+}
+
+// sessionLabel derives a display name from session metadata, preferring the
+// session summary and falling back to "repository (branch)". Returns "" when
+// no usable name is available.
+func sessionLabel(summary, repository, branch sql.NullString) string {
+	if summary.Valid && summary.String != "" {
+		return summary.String
+	}
+	if repository.Valid && repository.String != "" {
+		if branch.Valid && branch.String != "" {
+			return repository.String + " (" + branch.String + ")"
+		}
+		return repository.String
+	}
+	return ""
+}
+
+// SessionModelUsage is one model's AIU contribution within a single session.
+type SessionModelUsage struct {
+	Model string  `json:"model"`
+	AIU   float64 `json:"aiu"`
+	Rows  int     `json:"rows"`
+}
+
+// SessionCheckpoint is one recorded checkpoint summary within a session.
+type SessionCheckpoint struct {
+	Number    int    `json:"number"`
+	Title     string `json:"title"`
+	Overview  string `json:"overview"`
+	WorkDone  string `json:"workDone"`
+	NextSteps string `json:"nextSteps"`
+	CreatedAt string `json:"createdAt"`
+}
+
+// SessionDetail is the drill-down view for a single session: its metadata,
+// per-model AIU breakdown, and checkpoint summaries.
+type SessionDetail struct {
+	ID          string              `json:"id"`
+	Summary     string              `json:"summary"`
+	Repository  string              `json:"repository"`
+	Branch      string              `json:"branch"`
+	Cwd         string              `json:"cwd"`
+	CreatedAt   string              `json:"createdAt"`
+	UpdatedAt   string              `json:"updatedAt"`
+	ByModel     []SessionModelUsage `json:"byModel"`
+	Checkpoints []SessionCheckpoint `json:"checkpoints"`
+}
+
+// SessionDetail returns metadata, per-model AIU breakdown and checkpoint
+// summaries for one session. It returns ErrSessionNotFound if no sessions row
+// matches id.
+func (s *Store) SessionDetail(ctx context.Context, id string) (*SessionDetail, error) {
+	var summary, repository, branch, cwd, createdAt, updatedAt sql.NullString
+	err := s.db.QueryRowContext(ctx, `
+		SELECT summary, repository, branch, cwd, created_at, updated_at
+		FROM sessions
+		WHERE id = ?`, id).Scan(&summary, &repository, &branch, &cwd, &createdAt, &updatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrSessionNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	detail := &SessionDetail{
+		ID:         id,
+		Summary:    summary.String,
+		Repository: repository.String,
+		Branch:     branch.String,
+		Cwd:        cwd.String,
+		CreatedAt:  createdAt.String,
+		UpdatedAt:  updatedAt.String,
+	}
+
+	modelRows, err := s.db.QueryContext(ctx, `
+		SELECT model, SUM(total_nano_aiu), COUNT(*)
+		FROM assistant_usage_events
+		WHERE session_id = ?
+		GROUP BY model
+		ORDER BY SUM(total_nano_aiu) DESC`, id)
+	if err != nil {
+		return nil, err
+	}
+	for modelRows.Next() {
+		var model string
+		var nano sql.NullInt64
+		var rows int
+		if err := modelRows.Scan(&model, &nano, &rows); err != nil {
+			modelRows.Close()
+			return nil, err
+		}
+		detail.ByModel = append(detail.ByModel, SessionModelUsage{
+			Model: model,
+			AIU:   float64(nano.Int64) / nanoPerAIU,
+			Rows:  rows,
+		})
+	}
+	if err := modelRows.Err(); err != nil {
+		modelRows.Close()
+		return nil, err
+	}
+	modelRows.Close()
+
+	cpRows, err := s.db.QueryContext(ctx, `
+		SELECT checkpoint_number, COALESCE(title, ''), COALESCE(overview, ''),
+		       COALESCE(work_done, ''), COALESCE(next_steps, ''), created_at
+		FROM checkpoints
+		WHERE session_id = ?
+		ORDER BY checkpoint_number ASC`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer cpRows.Close()
+	for cpRows.Next() {
+		var cp SessionCheckpoint
+		if err := cpRows.Scan(&cp.Number, &cp.Title, &cp.Overview, &cp.WorkDone, &cp.NextSteps, &cp.CreatedAt); err != nil {
+			return nil, err
+		}
+		detail.Checkpoints = append(detail.Checkpoints, cp)
+	}
+	if err := cpRows.Err(); err != nil {
+		return nil, err
+	}
+
+	return detail, nil
 }
 
 // meta fills total AIU, row count and the created_at range.

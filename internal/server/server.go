@@ -47,6 +47,25 @@ func New(st *store.Store, bc *billing.Client) http.Handler {
 		writeJSON(w, http.StatusOK, usage)
 	})
 
+	mux.HandleFunc("/api/session", func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, errMissingSessionID)
+			return
+		}
+
+		detail, err := st.SessionDetail(r.Context(), id)
+		if errors.Is(err, store.ErrSessionNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, detail)
+	})
+
 	mux.HandleFunc("/api/monthly", func(w http.ResponseWriter, r *http.Request) {
 		if bc == nil {
 			writeError(w, http.StatusServiceUnavailable, errNoBillingClient)
@@ -68,7 +87,10 @@ func New(st *store.Store, bc *billing.Client) http.Handler {
 	return mux
 }
 
-var errNoBillingClient = errors.New("gh is not authenticated; monthly billing unavailable")
+var (
+	errNoBillingClient  = errors.New("gh is not authenticated; monthly billing unavailable")
+	errMissingSessionID = errors.New("missing required query parameter: id")
+)
 
 func queryInt(r *http.Request, key string, def int) int {
 	v := r.URL.Query().Get(key)

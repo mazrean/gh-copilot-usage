@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -26,6 +27,16 @@ func makeDB(t *testing.T, rows [][4]any) string {
 		total_nano_aiu INTEGER, created_at TEXT)`); err != nil {
 		t.Fatalf("create: %v", err)
 	}
+	if _, err := db.Exec(`CREATE TABLE sessions (
+		id TEXT PRIMARY KEY, cwd TEXT, repository TEXT, branch TEXT,
+		summary TEXT, created_at TEXT, updated_at TEXT)`); err != nil {
+		t.Fatalf("create sessions: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TABLE checkpoints (
+		id INTEGER PRIMARY KEY, session_id TEXT, checkpoint_number INTEGER,
+		title TEXT, overview TEXT, work_done TEXT, next_steps TEXT, created_at TEXT)`); err != nil {
+		t.Fatalf("create checkpoints: %v", err)
+	}
 	for _, r := range rows {
 		if _, err := db.Exec(
 			`INSERT INTO assistant_usage_events(session_id, model, total_nano_aiu, created_at)
@@ -34,6 +45,38 @@ func makeDB(t *testing.T, rows [][4]any) string {
 		}
 	}
 	return path
+}
+
+// insertSession adds a sessions row. Empty strings are stored as NULL.
+func insertSession(t *testing.T, path, id, summary, repository, branch string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	toNull := func(s string) sql.NullString { return sql.NullString{String: s, Valid: s != ""} }
+	if _, err := db.Exec(
+		`INSERT INTO sessions(id, summary, repository, branch) VALUES(?,?,?,?)`,
+		id, toNull(summary), toNull(repository), toNull(branch)); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+}
+
+// insertCheckpoint adds a checkpoints row for a session.
+func insertCheckpoint(t *testing.T, path, sessionID string, number int, title, overview, workDone, nextSteps string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(
+		`INSERT INTO checkpoints(session_id, checkpoint_number, title, overview, work_done, next_steps, created_at)
+		 VALUES(?,?,?,?,?,?,?)`,
+		sessionID, number, title, overview, workDone, nextSteps, "2026-07-25T01:00:00.000Z"); err != nil {
+		t.Fatalf("insert checkpoint: %v", err)
+	}
 }
 
 func find(u *Usage, key string) *Series {
@@ -114,6 +157,117 @@ func TestAggregateBySessionMonthly(t *testing.T) {
 	s2 := find(u, "s2")
 	if s2 == nil || s2.Values[0] != 1.0 || s2.Values[1] != 0.0 {
 		t.Fatalf("s2 values = %+v, want [1 0]", s2)
+	}
+}
+
+func TestSessionLabelFromSummary(t *testing.T) {
+	path := makeDB(t, [][4]any{
+		{"s1", "m", int64(1_000_000_000), "2026-07-25T01:00:00.000Z"},
+	})
+	insertSession(t, path, "s1", "Tool Overview Session", "", "")
+
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	u, err := st.Aggregate(context.Background(), DimSession, GranDay)
+	if err != nil {
+		t.Fatalf("aggregate: %v", err)
+	}
+	s1 := find(u, "s1")
+	if s1 == nil || s1.Label != "Tool Overview Session" {
+		t.Fatalf("label = %+v, want %q", s1, "Tool Overview Session")
+	}
+}
+
+func TestSessionLabelFallsBackToRepository(t *testing.T) {
+	path := makeDB(t, [][4]any{
+		{"s1", "m", int64(1_000_000_000), "2026-07-25T01:00:00.000Z"},
+	})
+	insertSession(t, path, "s1", "", "mazrean/kessoku", "main")
+
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	u, err := st.Aggregate(context.Background(), DimSession, GranDay)
+	if err != nil {
+		t.Fatalf("aggregate: %v", err)
+	}
+	s1 := find(u, "s1")
+	if s1 == nil || s1.Label != "mazrean/kessoku (main)" {
+		t.Fatalf("label = %+v, want %q", s1, "mazrean/kessoku (main)")
+	}
+}
+
+func TestSessionLabelFallsBackToKeyWhenNoMetadata(t *testing.T) {
+	path := makeDB(t, [][4]any{
+		{"s1", "m", int64(1_000_000_000), "2026-07-25T01:00:00.000Z"},
+	})
+
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	u, err := st.Aggregate(context.Background(), DimSession, GranDay)
+	if err != nil {
+		t.Fatalf("aggregate: %v", err)
+	}
+	s1 := find(u, "s1")
+	if s1 == nil || s1.Label != "s1" {
+		t.Fatalf("label = %+v, want %q", s1, "s1")
+	}
+}
+
+func TestSessionDetail(t *testing.T) {
+	path := makeDB(t, [][4]any{
+		{"s1", "gpt-5-mini", int64(500_000_000), "2026-07-25T01:00:00.000Z"},
+		{"s1", "claude", int64(1_000_000_000), "2026-07-25T02:00:00.000Z"},
+	})
+	insertSession(t, path, "s1", "Tool Overview Session", "mazrean/kessoku", "main")
+	insertCheckpoint(t, path, "s1", 1, "Initial exploration", "looked around", "read files", "start implementing")
+	insertCheckpoint(t, path, "s1", 2, "Implementation", "wrote code", "added feature", "write tests")
+
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	d, err := st.SessionDetail(context.Background(), "s1")
+	if err != nil {
+		t.Fatalf("session detail: %v", err)
+	}
+	if d.Summary != "Tool Overview Session" || d.Repository != "mazrean/kessoku" || d.Branch != "main" {
+		t.Fatalf("metadata = %+v", d)
+	}
+	if len(d.ByModel) != 2 || d.ByModel[0].Model != "claude" || d.ByModel[0].AIU != 1.0 {
+		t.Fatalf("byModel = %+v, want claude first with 1.0 AIU", d.ByModel)
+	}
+	if len(d.Checkpoints) != 2 || d.Checkpoints[0].Title != "Initial exploration" || d.Checkpoints[1].Title != "Implementation" {
+		t.Fatalf("checkpoints = %+v", d.Checkpoints)
+	}
+}
+
+func TestSessionDetailNotFound(t *testing.T) {
+	path := makeDB(t, [][4]any{
+		{"s1", "m", int64(1_000_000_000), "2026-07-25T01:00:00.000Z"},
+	})
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	_, err = st.SessionDetail(context.Background(), "does-not-exist")
+	if !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("err = %v, want ErrSessionNotFound", err)
 	}
 }
 

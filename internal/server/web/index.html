@@ -113,6 +113,65 @@
     overflow-x: auto;
   }
   #chart { min-width: 480px; height: 420px; }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(27, 31, 36, 0.5);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 16px;
+    z-index: 100;
+  }
+  .modal-backdrop[hidden] { display: none; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(140, 149, 159, 0.3);
+    max-width: 640px;
+    width: 100%;
+    max-height: calc(100vh - 96px);
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-header h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+  .modal-close {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px 8px;
+  }
+  .modal-body { padding: 16px; overflow-y: auto; }
+  .modal-meta { font-size: 0.85rem; color: var(--muted); margin-bottom: 12px; line-height: 1.6; }
+  .modal-section-title { font-size: 0.85rem; font-weight: 600; margin: 16px 0 8px; }
+  .model-breakdown-list { list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
+  .model-breakdown-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .checkpoint-item {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .checkpoint-item .checkpoint-title { font-weight: 600; font-size: 0.9rem; }
+  .checkpoint-item .checkpoint-field { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+  .checkpoint-item .checkpoint-field b { color: var(--fg); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -172,6 +231,16 @@
     <canvas id="chart"></canvas>
   </div>
 
+  <div class="modal-backdrop" id="session-modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="session-modal-title">
+      <div class="modal-header">
+        <h2 id="session-modal-title">セッション詳細</h2>
+        <button class="modal-close" id="session-modal-close" aria-label="閉じる">×</button>
+      </div>
+      <div class="modal-body" id="session-modal-body"></div>
+    </div>
+  </div>
+
 <script>
 const state = { dimension: "model", granularity: "day" };
 let chart;
@@ -218,8 +287,10 @@ function renderSummary(data) {
 }
 
 function renderChart(data) {
+  const isSession = data.dimension === "session";
   const datasets = data.series.map((s, i) => ({
-    label: s.key,
+    label: s.label || s.key,
+    sessionId: isSession && s.key !== "unknown" ? s.key : null,
     data: s.values,
     backgroundColor: palette[i % palette.length],
   }));
@@ -242,15 +313,98 @@ function renderChart(data) {
           },
         },
       },
+      onHover: (event, elements) => {
+        const hit = elements[0] && chart.data.datasets[elements[0].datasetIndex];
+        event.native.target.style.cursor = hit && hit.sessionId ? "pointer" : "default";
+      },
+      onClick: (event, elements) => {
+        const el = elements[0];
+        if (!el) return;
+        const dataset = chart.data.datasets[el.datasetIndex];
+        if (dataset.sessionId) openSessionDetail(dataset.sessionId);
+      },
     },
   };
 
   if (chart) {
     chart.data = cfg.data;
+    chart.options.onHover = cfg.options.onHover;
+    chart.options.onClick = cfg.options.onClick;
     chart.update();
   } else {
     chart = new Chart(document.getElementById("chart"), cfg);
   }
+}
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = String(s);
+  return div.innerHTML;
+}
+
+const sessionModalBackdrop = document.getElementById("session-modal-backdrop");
+document.getElementById("session-modal-close").addEventListener("click", closeSessionModal);
+sessionModalBackdrop.addEventListener("click", (e) => {
+  if (e.target === sessionModalBackdrop) closeSessionModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeSessionModal();
+});
+
+function closeSessionModal() {
+  sessionModalBackdrop.hidden = true;
+}
+
+async function openSessionDetail(sessionId) {
+  const body = document.getElementById("session-modal-body");
+  document.getElementById("session-modal-title").textContent = "セッション詳細";
+  body.textContent = "読み込み中……";
+  sessionModalBackdrop.hidden = false;
+
+  let res, data;
+  try {
+    res = await fetch("/api/session?id=" + encodeURIComponent(sessionId));
+    data = await res.json();
+  } catch (e) {
+    body.textContent = "取得に失敗しました";
+    return;
+  }
+  if (!res.ok) {
+    body.textContent = data.error || "取得に失敗しました";
+    return;
+  }
+  renderSessionDetail(data);
+}
+
+function renderSessionDetail(d) {
+  document.getElementById("session-modal-title").textContent = d.summary || d.id;
+
+  const metaParts = [];
+  if (d.repository) metaParts.push(d.branch ? `${d.repository} (${d.branch})` : d.repository);
+  if (d.cwd) metaParts.push(d.cwd);
+  if (d.createdAt) metaParts.push(`作成: ${d.createdAt.slice(0, 16).replace("T", " ")}`);
+  if (d.updatedAt) metaParts.push(`更新: ${d.updatedAt.slice(0, 16).replace("T", " ")}`);
+
+  const modelList = (d.byModel || []).map((m) =>
+    `<li><span>${escapeHtml(m.model)}</span><span>${m.aiu.toFixed(3)} AIU (${m.rows}件)</span></li>`
+  ).join("");
+
+  const checkpoints = (d.checkpoints || []).map((cp) => `
+    <div class="checkpoint-item">
+      <div class="checkpoint-title">#${cp.number} ${escapeHtml(cp.title || "(無題)")}</div>
+      ${cp.overview ? `<div class="checkpoint-field"><b>概要:</b> ${escapeHtml(cp.overview)}</div>` : ""}
+      ${cp.workDone ? `<div class="checkpoint-field"><b>作業内容:</b> ${escapeHtml(cp.workDone)}</div>` : ""}
+      ${cp.nextSteps ? `<div class="checkpoint-field"><b>次のステップ:</b> ${escapeHtml(cp.nextSteps)}</div>` : ""}
+    </div>
+  `).join("");
+
+  document.getElementById("session-modal-body").innerHTML = `
+    <div class="modal-meta">${metaParts.map(escapeHtml).join(" ・ ")}</div>
+    <div class="modal-section-title">モデル別内訳</div>
+    <ul class="model-breakdown-list">${modelList || "<li>データがありません</li>"}</ul>
+    <div class="modal-section-title">チェックポイント</div>
+    ${checkpoints || "<div>チェックポイントの記録はありません</div>"}
+  `;
 }
 
 function resetMonthlyPace() {
