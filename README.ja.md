@@ -6,7 +6,7 @@ GitHub Copilot CLI の AI クレジット（AIC）使用量を、積み上げ時
 
 ## インストール
 
-[`gh` CLI](https://cli.github.com/) がインストール済みで、認証済み（`gh auth login`）である必要があります。
+[`gh` CLI](https://cli.github.com/) を用いて、以下のコマンドでインストールできます。
 
 ```bash
 gh extension install mazrean/gh-copilot-usage

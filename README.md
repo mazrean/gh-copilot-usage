@@ -6,7 +6,7 @@ A [`gh` CLI](https://cli.github.com/) extension that visualizes your GitHub Copi
 
 ## Install
 
-Requires the [`gh` CLI](https://cli.github.com/) to be installed and authenticated (`gh auth login`):
+You can install it via the [`gh` CLI](https://cli.github.com/) with the following command:
 
 ```bash
 gh extension install mazrean/gh-copilot-usage
