@@ -18,7 +18,6 @@ export default defineConfig({
   theme: {
     colors: {
       bg: "var(--bg)",
-      "bg-subtle": "var(--bg-subtle)",
       fg: "var(--fg)",
       muted: "var(--muted)",
       border: "var(--border)",
@@ -29,10 +28,10 @@ export default defineConfig({
     },
   },
   shortcuts: {
-    "toggle-group": "inline-flex bg-bg-subtle border border-border rounded-md p-0.5 gap-0.5",
+    "toggle-group": "inline-flex bg-[var(--toggle-track-bg)] border border-border rounded-md p-0.5 gap-0.5",
     "toggle-btn":
-      "bg-transparent text-muted border border-transparent rounded-[5px] text-[0.85rem] px-3 py-1 cursor-pointer hover:bg-hover focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
-    "toggle-btn-active": "bg-card text-fg border-border font-semibold [box-shadow:var(--shadow)]",
+      "bg-transparent text-muted border border-transparent rounded-[5px] text-[0.85rem] px-3 py-1 cursor-pointer hover:bg-[var(--toggle-track-hover)] active:bg-[var(--toggle-track-active)] focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
+    "toggle-btn-active": "bg-[var(--toggle-knob-bg)] text-fg border-border font-semibold [box-shadow:var(--shadow)]",
     "group-box": "bg-card border border-border rounded-md p-4 [box-shadow:var(--shadow-md)]",
     "group-title": "text-[0.85rem] font-semibold text-muted mb-2.5",
     "card-label": "text-[0.75rem] text-muted",
@@ -68,7 +67,6 @@ export default defineConfig({
         :root {
           color-scheme: light dark;
           --bg: #f6f8fa;
-          --bg-subtle: #f6f8fa;
           --fg: #1f2328;
           --muted: #59636e;
           --border: #d1d9e0;
@@ -79,11 +77,17 @@ export default defineConfig({
           --shadow-md: 0 1px 1px 0 rgba(37, 41, 46, 0.1), 0 3px 6px 0 rgba(37, 41, 46, 0.12);
           --hover: rgba(129, 139, 152, 0.1);
           --focus-ring: #0969da;
+          /* controlTrack and controlKnob tokens — the segmented-control-
+             specific pair, distinct from the generic control- tokens used
+             for ordinary form controls. */
+          --toggle-track-bg: #e6eaef;
+          --toggle-track-hover: #e0e6eb;
+          --toggle-track-active: #dae0e7;
+          --toggle-knob-bg: #ffffff;
         }
         @media (prefers-color-scheme: dark) {
           :root {
             --bg: #151b23;
-            --bg-subtle: #212830;
             --fg: #f0f6fc;
             --muted: #9198a1;
             --border: #3d444d;
@@ -94,6 +98,10 @@ export default defineConfig({
             --shadow-md: 0 1px 1px 0 rgba(1, 4, 9, 0.4), 0 3px 6px 0 rgba(1, 4, 9, 0.8);
             --hover: rgba(101, 108, 118, 0.2);
             --focus-ring: #1f6feb;
+            --toggle-track-bg: #010409;
+            --toggle-track-hover: #2a313c;
+            --toggle-track-active: #2f3742;
+            --toggle-knob-bg: #262c36;
           }
         }
         * { box-sizing: border-box; }
