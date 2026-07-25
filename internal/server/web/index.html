@@ -9,31 +9,49 @@
   :root {
     color-scheme: light dark;
     --bg: #ffffff;
-    --fg: #1a1a1a;
-    --muted: #666;
-    --border: #ddd;
-    --card: #f7f7f8;
-    --accent: #2563eb;
+    --bg-subtle: #f6f8fa;
+    --fg: #1f2328;
+    --muted: #59636e;
+    --border: #d1d9e0;
+    --card: #ffffff;
+    --accent: #0969da;
+    --danger: #d1242f;
+    --shadow: 0 1px 0 rgba(31, 35, 40, 0.04);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #16171a;
-      --fg: #e8e8ea;
-      --muted: #9a9a9f;
-      --border: #333;
-      --card: #1f2023;
-      --accent: #5b8def;
+      --bg: #0d1117;
+      --bg-subtle: #161b22;
+      --fg: #e6edf3;
+      --muted: #8b949e;
+      --border: #30363d;
+      --card: #0d1117;
+      --accent: #58a6ff;
+      --danger: #f85149;
+      --shadow: 0 0 transparent;
     }
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", Helvetica, Arial, sans-serif;
     background: var(--bg);
     color: var(--fg);
     padding: 24px;
   }
-  h1 { font-size: 1.25rem; margin: 0 0 16px; }
+  h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  h2.group-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
   .controls {
     display: flex;
     gap: 12px;
@@ -42,43 +60,56 @@
   }
   .toggle-group {
     display: inline-flex;
+    background: var(--bg-subtle);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
   }
   .toggle-group button {
-    background: var(--card);
-    color: var(--fg);
-    border: none;
-    padding: 6px 14px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 4px 12px;
     cursor: pointer;
     font-size: 0.85rem;
   }
-  .toggle-group button + button { border-left: 1px solid var(--border); }
   .toggle-group button[aria-pressed="true"] {
-    background: var(--accent);
-    color: #fff;
+    background: var(--card);
+    color: var(--fg);
+    border-color: var(--border);
+    font-weight: 600;
+    box-shadow: var(--shadow);
+  }
+  .groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .group-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    box-shadow: var(--shadow);
   }
   .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 12px;
-    margin-bottom: 20px;
-  }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 16px;
   }
   .card .label { font-size: 0.75rem; color: var(--muted); }
   .card .value { font-size: 1.4rem; font-weight: 600; margin-top: 4px; }
-  .card .error { font-size: 0.8rem; color: #d9534f; }
+  .card .value.small { font-size: 0.95rem; }
+  .card .error { font-size: 0.8rem; color: var(--danger); }
   .chart-wrap {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 6px;
     padding: 16px;
+    box-shadow: var(--shadow);
     overflow-x: auto;
   }
   #chart { min-width: 480px; height: 420px; }
@@ -99,23 +130,41 @@
     </div>
   </div>
 
-  <div class="cards">
-    <div class="card">
-      <div class="label">ローカル総 AIU</div>
-      <div class="value" id="card-total">-</div>
+  <div class="groups">
+    <div class="group-box">
+      <h2 class="group-title">ローカル計測</h2>
+      <div class="cards">
+        <div class="card">
+          <div class="label">ローカル総 AIU</div>
+          <div class="value" id="card-total">-</div>
+        </div>
+        <div class="card">
+          <div class="label">記録件数</div>
+          <div class="value" id="card-rows">-</div>
+        </div>
+        <div class="card">
+          <div class="label">期間</div>
+          <div class="value small" id="card-range">-</div>
+        </div>
+      </div>
     </div>
-    <div class="card">
-      <div class="label">記録件数</div>
-      <div class="value" id="card-rows">-</div>
-    </div>
-    <div class="card">
-      <div class="label">期間</div>
-      <div class="value" id="card-range" style="font-size:0.95rem">-</div>
-    </div>
-    <div class="card">
-      <div class="label">今月の請求ベース AIC</div>
-      <div class="value" id="card-monthly">-</div>
-      <div class="error" id="card-monthly-error"></div>
+    <div class="group-box">
+      <h2 class="group-title">今月の請求ベース</h2>
+      <div class="cards">
+        <div class="card">
+          <div class="label">今月 AIC</div>
+          <div class="value" id="card-monthly">-</div>
+          <div class="error" id="card-monthly-error"></div>
+        </div>
+        <div class="card">
+          <div class="label">経過日数</div>
+          <div class="value small" id="card-monthly-days">-</div>
+        </div>
+        <div class="card">
+          <div class="label">月末予測 AIC</div>
+          <div class="value" id="card-monthly-projected">-</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -204,6 +253,11 @@ function renderChart(data) {
   }
 }
 
+function resetMonthlyPace() {
+  document.getElementById("card-monthly-days").textContent = "-";
+  document.getElementById("card-monthly-projected").textContent = "-";
+}
+
 async function loadMonthly() {
   const res = await fetch("/api/monthly");
   const data = await res.json();
@@ -212,10 +266,20 @@ async function loadMonthly() {
   if (!res.ok) {
     valueEl.textContent = "-";
     errEl.textContent = data.error || "取得に失敗しました";
+    resetMonthlyPace();
     return;
   }
   errEl.textContent = "";
   valueEl.textContent = data.totalAIC.toFixed(2);
+
+  const daysInMonth = new Date(data.year, data.month, 0).getDate();
+  const now = new Date();
+  const isCurrentMonth = now.getFullYear() === data.year && (now.getMonth() + 1) === data.month;
+  const daysElapsed = isCurrentMonth ? now.getDate() : daysInMonth;
+  const projected = daysElapsed > 0 ? (data.totalAIC / daysElapsed) * daysInMonth : data.totalAIC;
+
+  document.getElementById("card-monthly-days").textContent = `${daysElapsed}/${daysInMonth} 日`;
+  document.getElementById("card-monthly-projected").textContent = projected.toFixed(2);
 }
 
 loadUsage();
