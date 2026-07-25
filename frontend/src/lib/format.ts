@@ -26,11 +26,35 @@ export interface MonthlyPace {
   projected: number;
 }
 
-export function computeMonthlyPace(totalAIC: number, year: number, month: number): MonthlyPace {
+export type PaceMode = "calendar" | "weekday";
+
+function countWeekdaysThrough(year: number, month: number, lastDay: number): number {
+  let count = 0;
+  for (let d = 1; d <= lastDay; d++) {
+    const dow = new Date(year, month - 1, d).getDay();
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
+}
+
+export function computeMonthlyPace(
+  totalAIC: number,
+  year: number,
+  month: number,
+  mode: PaceMode = "calendar",
+): MonthlyPace {
   const daysInMonth = new Date(year, month, 0).getDate();
   const now = new Date();
   const isCurrentMonth = now.getFullYear() === year && now.getMonth() + 1 === month;
-  const daysElapsed = isCurrentMonth ? now.getDate() : daysInMonth;
-  const projected = daysElapsed > 0 ? (totalAIC / daysElapsed) * daysInMonth : totalAIC;
-  return { daysElapsed, daysInMonth, projected };
+  const calendarDaysElapsed = isCurrentMonth ? now.getDate() : daysInMonth;
+
+  if (mode === "weekday") {
+    const weekdaysInMonth = countWeekdaysThrough(year, month, daysInMonth);
+    const weekdaysElapsed = countWeekdaysThrough(year, month, calendarDaysElapsed);
+    const projected = weekdaysElapsed > 0 ? (totalAIC / weekdaysElapsed) * weekdaysInMonth : totalAIC;
+    return { daysElapsed: weekdaysElapsed, daysInMonth: weekdaysInMonth, projected };
+  }
+
+  const projected = calendarDaysElapsed > 0 ? (totalAIC / calendarDaysElapsed) * daysInMonth : totalAIC;
+  return { daysElapsed: calendarDaysElapsed, daysInMonth, projected };
 }

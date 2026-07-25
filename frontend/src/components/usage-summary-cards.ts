@@ -1,7 +1,14 @@
 import { LitElement, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { fetchMonthly, type ApiError, type Monthly, type Usage } from "../lib/api.js";
-import { computeMonthlyPace, formatAIU, formatDateRange } from "../lib/format.js";
+import { computeMonthlyPace, formatAIU, formatDateRange, type PaceMode } from "../lib/format.js";
+import type { ToggleOption } from "./usage-toggle-group.js";
+import "./usage-toggle-group.js";
+
+const PACE_MODE_OPTIONS: ToggleOption[] = [
+  { value: "calendar", label: "暦日ベース" },
+  { value: "weekday", label: "平日のみ" },
+];
 
 @customElement("usage-summary-cards")
 export class UsageSummaryCards extends LitElement {
@@ -9,6 +16,7 @@ export class UsageSummaryCards extends LitElement {
 
   @state() monthly: Monthly | null = null;
   @state() monthlyError = "";
+  @state() paceMode: PaceMode = "calendar";
 
   createRenderRoot() {
     return this;
@@ -33,7 +41,7 @@ export class UsageSummaryCards extends LitElement {
   render() {
     const u = this.usage;
     const pace = this.monthly
-      ? computeMonthlyPace(this.monthly.totalAIC, this.monthly.year, this.monthly.month)
+      ? computeMonthlyPace(this.monthly.totalAIC, this.monthly.year, this.monthly.month, this.paceMode)
       : null;
 
     return html`
@@ -56,7 +64,16 @@ export class UsageSummaryCards extends LitElement {
           </div>
         </div>
         <div class="group-box">
-          <h2 class="group-title">今月の請求ベース</h2>
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <h2 class="group-title">今月の請求ベース</h2>
+            <usage-toggle-group
+              .options=${PACE_MODE_OPTIONS}
+              .value=${this.paceMode}
+              @change=${(e: CustomEvent<{ value: string }>) => {
+                this.paceMode = e.detail.value as PaceMode;
+              }}
+            ></usage-toggle-group>
+          </div>
           <div class="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">
             <div>
               <div class="card-label">今月 AIC</div>
@@ -64,7 +81,7 @@ export class UsageSummaryCards extends LitElement {
               <div class="card-error">${this.monthlyError}</div>
             </div>
             <div>
-              <div class="card-label">経過日数</div>
+              <div class="card-label">${this.paceMode === "weekday" ? "経過平日数" : "経過日数"}</div>
               <div class="card-value-small">${pace ? `${pace.daysElapsed}/${pace.daysInMonth} 日` : "-"}</div>
             </div>
             <div>
