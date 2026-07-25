@@ -33,13 +33,13 @@ export default defineConfig({
     "toggle-btn":
       "bg-transparent text-muted border border-transparent rounded-[5px] text-[0.85rem] px-3 py-1 cursor-pointer hover:bg-hover focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
     "toggle-btn-active": "bg-card text-fg border-border font-semibold [box-shadow:var(--shadow)]",
-    "group-box": "bg-card border border-border rounded-md p-4 [box-shadow:var(--shadow)]",
+    "group-box": "bg-card border border-border rounded-md p-4 [box-shadow:var(--shadow-md)]",
     "group-title": "text-[0.85rem] font-semibold text-muted mb-2.5",
     "card-label": "text-[0.75rem] text-muted",
     "card-value": "text-[1.4rem] font-semibold mt-1",
     "card-value-small": "text-[0.95rem] font-semibold mt-1",
     "card-error": "text-[0.8rem] text-danger",
-    "chart-wrap": "bg-card border border-border rounded-md p-4 [box-shadow:var(--shadow)] overflow-x-auto",
+    "chart-wrap": "bg-card border border-border rounded-md p-4 [box-shadow:var(--shadow-md)] overflow-x-auto",
     "modal-backdrop": "fixed inset-0 bg-[rgba(27,31,36,0.5)] flex items-start justify-center py-12 px-4 z-[100]",
     modal: "bg-card border border-border rounded-md [box-shadow:0_8px_24px_rgba(140,149,159,0.3)] max-w-[640px] w-full max-h-[calc(100vh-96px)] flex flex-col",
     "modal-header": "flex items-center justify-between px-4 py-3.5 border-b border-border",
@@ -54,14 +54,20 @@ export default defineConfig({
     {
       // Values are GitHub's own Primer design tokens (@primer/primitives
       // functional/themes/{light,dark}.css) — fgColor-*/bgColor-*/
-      // borderColor-*/shadow-resting-small/control-*/focus-outline-color —
+      // borderColor-*/shadow-resting-*/control-*/focus-outline-color —
       // copied here rather than importing the full multi-theme stylesheet,
       // since this app switches on prefers-color-scheme, not Primer's
       // data-color-mode attribute.
+      //
+      // --bg is the page canvas (bgColor-muted) and --card is the raised
+      // surface (bgColor-default) that sits on it — on github.com itself,
+      // page chrome and card/box content are rarely the same color; using
+      // one shade for both (as the very first pass here did) is what made
+      // the cards look flat/washed out against the page.
       getCSS: () => `
         :root {
           color-scheme: light dark;
-          --bg: #ffffff;
+          --bg: #f6f8fa;
           --bg-subtle: #f6f8fa;
           --fg: #1f2328;
           --muted: #59636e;
@@ -70,12 +76,13 @@ export default defineConfig({
           --accent: #0969da;
           --danger: #d1242f;
           --shadow: 0 1px 1px 0 rgba(31, 35, 40, 0.04), 0 1px 2px 0 rgba(31, 35, 40, 0.03);
+          --shadow-md: 0 1px 1px 0 rgba(37, 41, 46, 0.1), 0 3px 6px 0 rgba(37, 41, 46, 0.12);
           --hover: rgba(129, 139, 152, 0.1);
           --focus-ring: #0969da;
         }
         @media (prefers-color-scheme: dark) {
           :root {
-            --bg: #0d1117;
+            --bg: #151b23;
             --bg-subtle: #212830;
             --fg: #f0f6fc;
             --muted: #9198a1;
@@ -84,6 +91,7 @@ export default defineConfig({
             --accent: #4493f8;
             --danger: #f85149;
             --shadow: 0 1px 1px 0 rgba(1, 4, 9, 0.6), 0 1px 3px 0 rgba(1, 4, 9, 0.6);
+            --shadow-md: 0 1px 1px 0 rgba(1, 4, 9, 0.4), 0 3px 6px 0 rgba(1, 4, 9, 0.8);
             --hover: rgba(101, 108, 118, 0.2);
             --focus-ring: #1f6feb;
           }
