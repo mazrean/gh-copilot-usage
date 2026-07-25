@@ -1,11 +1,19 @@
+import path from "node:path";
 import { defineConfig, presetWind3 } from "unocss";
+
+const templatesDir = path.resolve(import.meta.dirname, "../internal/server/templates");
 
 export default defineConfig({
   presets: [presetWind3()],
   content: {
+    // also gates content.filesystem below — a file the glob finds still
+    // gets dropped here unless its extension is listed.
     pipeline: {
-      include: [/\.(vue|svelte|[jt]sx|mdx?|astro|elm|php|phtml|html)($|\?)/, "src/**/*.ts"],
+      include: [/\.(vue|svelte|[jt]sx|mdx?|astro|elm|php|phtml|templ|html)($|\?)/, "src/**/*.ts"],
     },
+    // the templ shell lives outside Vite's module graph, so it's never seen
+    // by the pipeline scan above — read it straight off disk instead.
+    filesystem: [`${templatesDir}/**/*.templ`],
   },
   theme: {
     colors: {
@@ -21,11 +29,11 @@ export default defineConfig({
   },
   shortcuts: {
     "toggle-group": "inline-flex bg-bg-subtle border border-border rounded-md p-0.5 gap-0.5",
-    "toggle-btn": "bg-transparent text-muted border border-transparent rounded text-[0.85rem] px-3 py-1 cursor-pointer",
+    "toggle-btn": "bg-transparent text-muted border border-transparent rounded-[5px] text-[0.85rem] px-3 py-1 cursor-pointer",
     "toggle-btn-active": "bg-card text-fg border-border font-semibold [box-shadow:var(--shadow)]",
     "group-box": "bg-card border border-border rounded-md p-4 [box-shadow:var(--shadow)]",
     "group-title": "text-[0.85rem] font-semibold text-muted mb-2.5",
-    "card-label": "text-xs text-muted",
+    "card-label": "text-[0.75rem] text-muted",
     "card-value": "text-[1.4rem] font-semibold mt-1",
     "card-value-small": "text-[0.95rem] font-semibold mt-1",
     "card-error": "text-[0.8rem] text-danger",
@@ -33,11 +41,11 @@ export default defineConfig({
     "modal-backdrop": "fixed inset-0 bg-[rgba(27,31,36,0.5)] flex items-start justify-center py-12 px-4 z-[100]",
     modal: "bg-card border border-border rounded-md [box-shadow:0_8px_24px_rgba(140,149,159,0.3)] max-w-[640px] w-full max-h-[calc(100vh-96px)] flex flex-col",
     "modal-header": "flex items-center justify-between px-4 py-3.5 border-b border-border",
-    "modal-close": "bg-transparent border-none text-muted text-xl cursor-pointer leading-none px-2 py-1",
-    "modal-body": "p-4 overflow-y-auto text-[0.9rem]",
+    "modal-close": "bg-transparent border-none text-muted text-[1.2rem] cursor-pointer leading-none px-2 py-1",
+    "modal-body": "p-4 overflow-y-auto",
     "modal-section-title": "text-[0.85rem] font-semibold mt-4 mb-2",
     "checkpoint-item": "border border-border rounded-md px-3 py-2.5 mb-2",
-    "page-title": "text-xl font-semibold m-0 mb-4 pb-3 border-b border-border",
+    "page-title": "text-[1.25rem] font-semibold m-0 mb-4 pb-3 border-b border-border",
   },
   preflights: [
     {

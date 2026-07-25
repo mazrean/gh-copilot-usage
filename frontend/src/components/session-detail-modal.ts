@@ -63,7 +63,7 @@ export class SessionDetailModal extends LitElement {
       <div class="modal-backdrop" role="presentation" @click=${(e: MouseEvent) => this.#onBackdropClick(e)}>
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="session-modal-title">
           <div class="modal-header">
-            <h2 id="session-modal-title" class="text-base font-semibold m-0">
+            <h2 id="session-modal-title" class="text-[1rem] font-semibold m-0">
               ${d ? d.summary || d.id : "セッション詳細"}
             </h2>
             <button type="button" class="modal-close" aria-label="閉じる" @click=${() => this.close()}>×</button>
@@ -93,9 +93,9 @@ export class SessionDetailModal extends LitElement {
       <dl class="m-0 mb-3 text-[0.85rem]">
         ${metaRows.map(
           ([label, value, cls]) => html`
-            <div class="flex gap-2.5 py-0.5">
-              <dt class="flex-none w-[7em] text-muted whitespace-nowrap">${label}</dt>
-              <dd class="m-0 break-words ${cls ?? ""}">${value}</dd>
+            <div class="flex gap-2.5 py-[3px]">
+              <dt class="flex-[0_0_7em] text-muted whitespace-nowrap">${label}</dt>
+              <dd class="m-0 [overflow-wrap:anywhere] ${cls ?? ""}">${value}</dd>
             </div>
           `,
         )}
