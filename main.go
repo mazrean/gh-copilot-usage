@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/mazrean/gh-copilot-usage/internal/billing"
@@ -44,7 +45,7 @@ func run() error {
 	}
 
 	flag.StringVar(&dbPath, "db", defaultDB, "path to Copilot session-store.db")
-	flag.StringVar(&addr, "addr", "127.0.0.1:0", "address to serve the web UI on")
+	flag.StringVar(&addr, "addr", "127.0.0.1:8765", "address to serve the web UI on; falls back to a random port if this one is unavailable")
 	flag.BoolVar(&noOpen, "no-open", false, "do not open the browser automatically")
 	flag.BoolVar(&jsonOut, "json", false, "print aggregated usage as JSON and exit (no server)")
 	flag.StringVar(&dim, "dimension", "model", "stacking dimension for --json: model|session")
@@ -74,9 +75,9 @@ func run() error {
 	}
 
 	handler := server.New(st, bc)
-	ln, err := net.Listen("tcp", addr)
+	ln, err := listen(addr)
 	if err != nil {
-		return fmt.Errorf("listen on %s: %w", addr, err)
+		return err
 	}
 	url := "http://" + ln.Addr().String()
 	fmt.Println("gh-copilot-usage serving at", url)
@@ -95,6 +96,31 @@ func run() error {
 		return err
 	}
 	return nil
+}
+
+// listen tries to bind addr and, if that port is already in use, falls back
+// to a random free port on the same host.
+func listen(addr string) (net.Listener, error) {
+	ln, err := net.Listen("tcp", addr)
+	if err == nil {
+		return ln, nil
+	}
+	if !errors.Is(err, syscall.EADDRINUSE) {
+		return nil, fmt.Errorf("listen on %s: %w", addr, err)
+	}
+
+	host, _, splitErr := net.SplitHostPort(addr)
+	if splitErr != nil {
+		return nil, fmt.Errorf("listen on %s: %w", addr, err)
+	}
+	fallbackAddr := net.JoinHostPort(host, "0")
+
+	slog.Warn("requested port is unavailable; falling back to a random port", "addr", addr)
+	ln, fallbackErr := net.Listen("tcp", fallbackAddr)
+	if fallbackErr != nil {
+		return nil, fmt.Errorf("listen on %s (fallback for %s): %w", fallbackAddr, addr, fallbackErr)
+	}
+	return ln, nil
 }
 
 func openBrowser(url string) error {
