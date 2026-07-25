@@ -6,6 +6,7 @@
     "postUpdateOptions": ["gomodTidy"]
   },
   "allowedCommands": [
+    "^go mod tidy -e$",
     "^go tool templ generate$",
     "^pnpm --dir frontend install --frozen-lockfile$",
     "^pnpm --dir frontend build$",
@@ -13,6 +14,7 @@
   ],
   "postUpgradeTasks": {
     "commands": [
+      "go mod tidy -e",
       "go tool templ generate",
       "pnpm --dir frontend install --frozen-lockfile",
       "pnpm --dir frontend build",
