@@ -87,7 +87,6 @@ export class TurnUsageChart extends LitElement {
                 if (!turn) return "";
                 const parts: string[] = [];
                 if (turn.durationMs) parts.push(`所要時間: ${formatDurationMs(turn.durationMs)}`);
-                if (turn.finishReason) parts.push(`終了理由: ${turn.finishReason}`);
                 return parts.join("\n");
               },
             },

@@ -504,7 +504,8 @@ func makeDBWithTurnDetail(t *testing.T) string {
 	defer db.Close()
 	if _, err := db.Exec(`CREATE TABLE assistant_usage_events (
 		id INTEGER PRIMARY KEY,
-		session_id TEXT, turn_index INTEGER, agent_id TEXT, model TEXT,
+		session_id TEXT, turn_index INTEGER, agent_id TEXT, parent_tool_call_id TEXT,
+		initiator TEXT, model TEXT,
 		input_tokens INTEGER, output_tokens INTEGER, cache_read_tokens INTEGER,
 		cache_write_tokens INTEGER, reasoning_tokens INTEGER,
 		total_nano_aiu INTEGER, duration_ms INTEGER, time_to_first_token_ms REAL,
@@ -525,8 +526,9 @@ func makeDBWithTurnDetail(t *testing.T) string {
 }
 
 // insertUsageEventDetail adds an assistant_usage_events row with per-event
-// detail columns populated.
-func insertUsageEventDetail(t *testing.T, path, sessionID string, turnIndex int, model string,
+// detail columns populated. agentID, parentToolCallID and initiator are
+// empty/"" for a call made directly by the main agent.
+func insertUsageEventDetail(t *testing.T, path, sessionID string, turnIndex int, agentID, parentToolCallID, initiator, model string,
 	input, output, cacheRead, cacheWrite, reasoning, nanoAIU, durationMs int64, ttft float64, finishReason, createdAt string) {
 	t.Helper()
 	db, err := sql.Open("sqlite", "file:"+path)
@@ -536,14 +538,25 @@ func insertUsageEventDetail(t *testing.T, path, sessionID string, turnIndex int,
 	defer db.Close()
 	if _, err := db.Exec(
 		`INSERT INTO assistant_usage_events(
-			session_id, turn_index, model, input_tokens, output_tokens,
+			session_id, turn_index, agent_id, parent_tool_call_id, initiator, model,
+			input_tokens, output_tokens,
 			cache_read_tokens, cache_write_tokens, reasoning_tokens,
 			total_nano_aiu, duration_ms, time_to_first_token_ms, finish_reason, created_at)
-		 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		sessionID, turnIndex, model, input, output, cacheRead, cacheWrite, reasoning,
+		 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		sessionID, turnIndex, nullIfEmpty(agentID), nullIfEmpty(parentToolCallID), nullIfEmpty(initiator), model,
+		input, output, cacheRead, cacheWrite, reasoning,
 		nanoAIU, durationMs, ttft, finishReason, createdAt); err != nil {
 		t.Fatalf("insert usage event detail: %v", err)
 	}
+}
+
+// nullIfEmpty maps "" to a SQL NULL so tests can distinguish "column absent"
+// from "column set to empty string" the same way real session-store.db rows do.
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // insertTurnDetail adds a turns row with assistant_response/timestamp populated.
@@ -564,9 +577,9 @@ func insertTurnDetail(t *testing.T, path, sessionID string, turnIndex int, userM
 func TestSessionDetailWithTurnDetailColumns(t *testing.T) {
 	path := makeDBWithTurnDetail(t)
 	insertSession(t, path, "s1", "Fix login bug", "", "")
-	insertUsageEventDetail(t, path, "s1", 0, "gpt-5-mini",
+	insertUsageEventDetail(t, path, "s1", 0, "", "", "user", "gpt-5-mini",
 		100, 50, 20, 0, 10, 500_000_000, 1200, 300.5, "stop", "2026-07-25T01:00:00.000Z")
-	insertUsageEventDetail(t, path, "s1", 0, "gpt-5-mini",
+	insertUsageEventDetail(t, path, "s1", 0, "", "", "agent", "gpt-5-mini",
 		200, 60, 0, 5, 0, 300_000_000, 800, 150.0, "tool_calls", "2026-07-25T01:00:05.000Z")
 	insertTurnDetail(t, path, "s1", 0, "fix the login bug please", "Done, fixed it.", "2026-07-25T01:00:10.000Z")
 
@@ -611,6 +624,61 @@ func TestSessionDetailWithTurnDetailColumns(t *testing.T) {
 		tok.CacheWriteTokens != 5 || tok.ReasoningTokens != 10 {
 		t.Fatalf("tokens = %+v", tok)
 	}
+
+	if len(turn.Spans) != 2 {
+		t.Fatalf("spans = %+v, want 2", turn.Spans)
+	}
+	if turn.Spans[0].Initiator != "user" || turn.Spans[0].AgentID != "" || turn.Spans[0].DurationMs != 1200 {
+		t.Fatalf("spans[0] = %+v", turn.Spans[0])
+	}
+	if turn.Spans[1].Initiator != "agent" || turn.Spans[1].AgentID != "" || turn.Spans[1].DurationMs != 800 {
+		t.Fatalf("spans[1] = %+v, want event-order (id ASC), not aggregated", turn.Spans[1])
+	}
+	if turn.Spans[1].FinishReason != "tool_calls" {
+		t.Fatalf("spans[1].FinishReason = %q", turn.Spans[1].FinishReason)
+	}
+}
+
+// TestSessionDetailSpansWithSubAgent verifies that a sub-agent delegation
+// event (agent_id/parent_tool_call_id populated, per the Copilot CLI
+// custom-agent delegation feature) is passed through on its span rather than
+// being dropped or merged into the main agent's calls.
+func TestSessionDetailSpansWithSubAgent(t *testing.T) {
+	path := makeDBWithTurnDetail(t)
+	insertSession(t, path, "s1", "Review the PR", "", "")
+	insertUsageEventDetail(t, path, "s1", 0, "", "", "user", "gpt-5-mini",
+		50, 20, 0, 0, 0, 200_000_000, 900, 200, "tool_calls", "2026-07-25T01:00:00.000Z")
+	insertUsageEventDetail(t, path, "s1", 0, "react-reviewer", "tc_delegate_1", "agent", "gpt-5-mini",
+		400, 150, 0, 0, 5, 900_000_000, 3000, 250, "stop", "2026-07-25T01:00:02.000Z")
+	insertUsageEventDetail(t, path, "s1", 0, "", "", "agent", "gpt-5-mini",
+		30, 10, 0, 0, 0, 100_000_000, 400, 100, "stop", "2026-07-25T01:00:06.000Z")
+
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	d, err := st.SessionDetail(context.Background(), "s1")
+	if err != nil {
+		t.Fatalf("session detail: %v", err)
+	}
+	if len(d.Turns) != 1 {
+		t.Fatalf("turns = %+v, want 1", d.Turns)
+	}
+	spans := d.Turns[0].Spans
+	if len(spans) != 3 {
+		t.Fatalf("spans = %+v, want 3", spans)
+	}
+	if spans[0].AgentID != "" {
+		t.Fatalf("spans[0].AgentID = %q, want main agent (empty)", spans[0].AgentID)
+	}
+	if spans[1].AgentID != "react-reviewer" || spans[1].ParentToolCallID != "tc_delegate_1" {
+		t.Fatalf("spans[1] = %+v, want sub-agent delegation passed through", spans[1])
+	}
+	if spans[2].AgentID != "" {
+		t.Fatalf("spans[2].AgentID = %q, want main agent resumed (empty)", spans[2].AgentID)
+	}
 }
 
 func TestSessionDetailWithoutTurnDetailColumns(t *testing.T) {
@@ -642,6 +710,9 @@ func TestSessionDetailWithoutTurnDetailColumns(t *testing.T) {
 	}
 	if len(turn.ByModel) != 1 || turn.ByModel[0].Tokens != nil {
 		t.Fatalf("byModel = %+v, want Tokens nil (no detail columns)", turn.ByModel)
+	}
+	if turn.Spans != nil {
+		t.Fatalf("spans = %+v, want nil (no detail columns)", turn.Spans)
 	}
 }
 

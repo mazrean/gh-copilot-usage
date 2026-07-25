@@ -35,6 +35,23 @@ export interface SessionModelUsage {
   tokens?: TurnTokenUsage;
 }
 
+// TurnEventSpan is one raw assistant_usage_events row within a turn, at event
+// granularity rather than summed across the turn. agentId/parentToolCallId
+// are empty for calls made directly by the main agent; when Copilot CLI
+// delegates to a custom sub-agent, agentId identifies that sub-agent and
+// parentToolCallId references the tool call that spawned it.
+export interface TurnEventSpan {
+  agentId?: string;
+  parentToolCallId?: string;
+  initiator?: string;
+  model: string;
+  startedAt?: string;
+  durationMs?: number;
+  aiu: number;
+  finishReason?: string;
+  tokens?: TurnTokenUsage;
+}
+
 export interface SessionTurnUsage {
   turnIndex: number;
   aiu: number;
@@ -47,6 +64,7 @@ export interface SessionTurnUsage {
   timeToFirstTokenMs?: number;
   finishReason?: string;
   byModel: SessionModelUsage[];
+  spans?: TurnEventSpan[];
 }
 
 export interface SessionDetail {
