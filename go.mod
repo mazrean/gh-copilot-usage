@@ -5,7 +5,7 @@ go 1.26.5
 require (
 	github.com/a-h/templ v0.3.1020
 	github.com/cli/go-gh/v2 v2.13.0
-	golang.org/x/tools v0.47.0
+	golang.org/x/tools v0.48.0
 	honnef.co/go/tools v0.7.0
 	modernc.org/sqlite v1.54.0
 )
