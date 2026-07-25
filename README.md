@@ -4,19 +4,20 @@
 
 A [`gh` CLI](https://cli.github.com/) extension that visualizes your GitHub Copilot CLI AI-credit (AIC) usage as a stacked time-series chart, right in your browser — and cross-checks it against GitHub's billing API.
 
-## What it does
+## Install
+
+```bash
+gh extension install mazrean/gh-copilot-usage
+```
+
+## Features
 
 `gh-copilot-usage` reads `~/.copilot/session-store.db` — the local SQLite database the Copilot CLI already keeps on your machine — and turns it into an interactive dashboard. Everything runs locally: the local-DB read path needs no token at all, and the billing cross-check reuses your existing `gh` authentication — there's no separate credential setup.
 
 > [!NOTE]
 > Usage is aggregated only from the Copilot CLI's local `session-store.db`. It does **not** include Copilot usage from the VS Code extension or other IDE integrations.
 
-```bash
-gh extension install mazrean/gh-copilot-usage
-gh copilot-usage
-```
-
-This starts a local server and opens it in your browser, showing AI-credit usage over time bucketed daily/weekly/monthly and stacked by model, alongside this month's billing total and a month-end pace projection:
+The dashboard shows AI-credit usage over time bucketed daily/weekly/monthly and stacked by model, alongside this month's billing total and a month-end pace projection:
 
 ![Daily usage stacked by model](docs/screenshots/dashboard-model-daily.png)
 
@@ -36,10 +37,16 @@ The UI itself can also be switched between English and Japanese, independent of 
 
 ## Usage
 
+```bash
+gh copilot-usage
+```
+
+This starts a local server (default `127.0.0.1:8765`, falling back to a random port if that one is busy) and opens it in your browser.
+
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--db` | `~/.copilot/session-store.db` | Path to the Copilot CLI session-store DB to read. |
-| `--addr` | `127.0.0.1:8765` | Address to serve the web UI on (falls back to a random port if busy). |
+| `--addr` | `127.0.0.1:8765` | Address to serve the web UI on. |
 | `--no-open` | `false` | Don't open a browser automatically. |
 | `--json` | `false` | Print aggregated usage as JSON and exit (no server). |
 | `--dimension` | `model` | Stacking dimension for `--json`: `model` or `session`. |
