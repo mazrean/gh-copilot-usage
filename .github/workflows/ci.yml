@@ -15,10 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+      - uses: jdx/mise-action@v4
+
+      - name: pnpm install
+        run: pnpm --dir frontend install --frozen-lockfile
+
+      - name: pnpm build
+        run: pnpm --dir frontend build
+
+      - name: go tool templ generate
+        run: go tool templ generate
 
       - name: go tool lint
         run: go tool lint ./...
@@ -28,10 +34,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+      - uses: jdx/mise-action@v4
+
+      - name: pnpm install
+        run: pnpm --dir frontend install --frozen-lockfile
+
+      - name: pnpm build
+        run: pnpm --dir frontend build
+
+      - name: go tool templ generate
+        run: go tool templ generate
 
       - name: go test
         run: go test -race ./...
@@ -41,17 +53,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+      - uses: jdx/mise-action@v4
+
+      - name: pnpm install
+        run: pnpm --dir frontend install --frozen-lockfile
+
+      - name: pnpm build
+        run: pnpm --dir frontend build
+
+      - name: go tool templ generate
+        run: go tool templ generate
 
       - name: go build
         run: go build ./...
 
       - name: goreleaser check
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: check
+        run: goreleaser check

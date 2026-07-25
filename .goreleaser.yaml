@@ -6,6 +6,9 @@ version: 2
 
 before:
   hooks:
+    - pnpm --dir frontend install --frozen-lockfile
+    - pnpm --dir frontend build
+    - go tool templ generate
     - go mod tidy
 
 builds:
