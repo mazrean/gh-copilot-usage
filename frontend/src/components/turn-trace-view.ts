@@ -102,8 +102,7 @@ export class TurnTraceView extends LitElement {
         <div class="font-semibold">${span.model}</div>
         <div>${formatAIU(span.aiu)} AIU</div>
         ${span.durationMs ? html`<div class="text-muted">${formatDurationMs(span.durationMs)}</div>` : nothing}
-        ${span.initiator ? html`<div class="text-muted">${span.initiator}</div>` : nothing}
-        ${span.finishReason ? html`<div class="text-muted">${span.finishReason}</div>` : nothing}
+        ${span.initiator ? html`<div class="text-muted">initiator: ${span.initiator}</div>` : nothing}
       </div>
     `;
   }

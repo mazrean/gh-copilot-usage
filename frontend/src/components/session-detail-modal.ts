@@ -121,7 +121,7 @@ export class SessionDetailModal extends LitElement {
               (m) => html`
                 <li class="flex justify-between gap-3 py-1 border-b border-border">
                   <span>${m.model}</span>
-                  <span>${formatAIU(m.aiu)} AIU (${m.rows}件)</span>
+                  <span>${formatAIU(m.aiu)} AIU</span>
                 </li>
               `,
             )
@@ -149,8 +149,6 @@ export class SessionDetailModal extends LitElement {
 
     const latencyParts: string[] = [];
     if (t.durationMs) latencyParts.push(`所要時間 ${formatDurationMs(t.durationMs)}`);
-    if (t.timeToFirstTokenMs) latencyParts.push(`初回応答 ${formatDurationMs(t.timeToFirstTokenMs)}`);
-    if (t.finishReason) latencyParts.push(`終了理由 ${t.finishReason}`);
 
     return html`
       <div class="turn-item mt-2">
