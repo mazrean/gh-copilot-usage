@@ -8,53 +8,37 @@ A [`gh` CLI](https://cli.github.com/) extension that visualizes your GitHub Copi
 
 ## What it does
 
-`gh-copilot-usage` reads `~/.copilot/session-store.db` — the local SQLite database the Copilot CLI already keeps on your machine — and turns it into an interactive dashboard:
-
-- **Stacked usage chart** — AI-credit usage over time, bucketed daily/weekly/monthly and stacked by model or by session.
-- **Billing cross-check** — fetches this month's AI-credit total from the GitHub billing API (via your existing `gh` login) and shows a month-end pace projection next to your local measurement.
-- **Session drill-down** — click a bar to see a session's per-model breakdown, per-turn AIU chart, and (when your Copilot CLI version records them) per-turn duration, token counts, and the trace of individual calls — including sub-agent delegations.
-- **Model drill-down** — click a model's segment to see its token-cost breakdown by category (input / cached input / cache write / output).
-- **Built-in English/Japanese UI toggle**, independent of your terminal locale.
-- **Scriptable JSON mode** (`--json`) for piping aggregated usage into other tools, no server required.
-
-Everything runs locally: the local-DB read path needs no token at all, and the billing cross-check reuses your existing `gh` authentication — there's no separate credential setup.
-
-## Screenshots
-
-**Daily usage, stacked by model** — with the local measurement and billing cross-check summary cards up top:
-
-![Daily usage stacked by model](docs/screenshots/dashboard-model-daily.png)
-
-**Weekly usage, stacked by session** — each segment is one Copilot CLI session:
-
-![Weekly usage stacked by session](docs/screenshots/dashboard-session-weekly.png)
-
-**Session drill-down** — per-model totals, a per-turn chart, and the selected turn's token counts and call trace:
-
-![Session detail modal](docs/screenshots/session-detail-modal.png)
-
-**Model drill-down** — token-cost breakdown by category:
-
-![Model detail modal](docs/screenshots/model-detail-modal.png)
-
-## Install
+`gh-copilot-usage` reads `~/.copilot/session-store.db` — the local SQLite database the Copilot CLI already keeps on your machine — and turns it into an interactive dashboard. Everything runs locally: the local-DB read path needs no token at all, and the billing cross-check reuses your existing `gh` authentication — there's no separate credential setup.
 
 ```bash
 gh extension install mazrean/gh-copilot-usage
-```
-
-## Usage
-
-```bash
 gh copilot-usage
 ```
 
-This starts a local server (default `127.0.0.1:8765`, falling back to a random port if that one is busy) and opens it in your browser.
+This starts a local server and opens it in your browser, showing AI-credit usage over time bucketed daily/weekly/monthly and stacked by model, alongside this month's billing total and a month-end pace projection:
+
+![Daily usage stacked by model](docs/screenshots/dashboard-model-daily.png)
+
+Switch the stacking dimension to see the same data broken down by Copilot CLI session instead of model — each segment below is one session:
+
+![Weekly usage stacked by session](docs/screenshots/dashboard-session-weekly.png)
+
+Click a bar to drill into that session: its per-model totals, a per-turn AIU chart, and (when your Copilot CLI version records them) the selected turn's duration, token counts, and the trace of individual calls — including sub-agent delegations:
+
+![Session detail modal](docs/screenshots/session-detail-modal.png)
+
+Click a model's segment instead to see its token-cost breakdown by category (input / cached input / cache write / output):
+
+![Model detail modal](docs/screenshots/model-detail-modal.png)
+
+The UI itself can also be switched between English and Japanese, independent of your terminal locale — see the toggle in the top-right corner of the screenshots above.
+
+## Usage
 
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--db` | `~/.copilot/session-store.db` | Path to the Copilot CLI session-store DB to read. |
-| `--addr` | `127.0.0.1:8765` | Address to serve the web UI on. |
+| `--addr` | `127.0.0.1:8765` | Address to serve the web UI on (falls back to a random port if busy). |
 | `--no-open` | `false` | Don't open a browser automatically. |
 | `--json` | `false` | Print aggregated usage as JSON and exit (no server). |
 | `--dimension` | `model` | Stacking dimension for `--json`: `model` or `session`. |
