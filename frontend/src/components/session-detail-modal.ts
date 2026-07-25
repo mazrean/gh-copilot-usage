@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { fetchSessionDetail, type ApiError, type SessionDetail } from "../lib/api.js";
 import { formatAIU, formatTimestamp } from "../lib/format.js";
+import "./turn-usage-chart.js";
 
 @customElement("session-detail-modal")
 export class SessionDetailModal extends LitElement {
@@ -115,29 +116,22 @@ export class SessionDetailModal extends LitElement {
       </ul>
       <div class="modal-section-title">ターン別内訳</div>
       ${turns.length
-        ? turns.map(
-            (t) => html`
-              <details class="turn-item">
-                <summary class="font-semibold text-[0.9rem] cursor-pointer">
-                  ${t.turnIndex >= 0 ? `ターン #${t.turnIndex}` : "未割当"}
-                  <span class="font-normal text-muted">— ${formatAIU(t.aiu)} AIU</span>
-                </summary>
-                ${t.userMessage
-                  ? html`<div class="text-[0.82rem] text-muted mt-1 [white-space:pre-wrap]">${t.userMessage}</div>`
-                  : nothing}
-                <ul class="list-none m-0 p-0 mt-1 text-[0.82rem]">
-                  ${t.byModel.map(
-                    (m) => html`
-                      <li class="flex justify-between gap-3 py-0.5">
-                        <span>${m.model}</span>
-                        <span>${formatAIU(m.aiu)} AIU (${m.rows}件)</span>
-                      </li>
-                    `,
-                  )}
-                </ul>
-              </details>
-            `,
-          )
+        ? html`
+            <turn-usage-chart .turns=${turns}></turn-usage-chart>
+            ${turns.map(
+              (t) => html`
+                <details class="turn-item">
+                  <summary class="font-semibold text-[0.9rem] cursor-pointer">
+                    ${t.turnIndex >= 0 ? `ターン #${t.turnIndex}` : "未割当"}
+                    <span class="font-normal text-muted">— ${formatAIU(t.aiu)} AIU</span>
+                  </summary>
+                  ${t.userMessage
+                    ? html`<div class="text-[0.82rem] text-muted mt-1 [white-space:pre-wrap]">${t.userMessage}</div>`
+                    : nothing}
+                </details>
+              `,
+            )}
+          `
         : html`<div>ターンの記録はありません</div>`}
     `;
   }

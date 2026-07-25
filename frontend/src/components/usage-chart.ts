@@ -12,21 +12,9 @@ import {
 } from "chart.js";
 import type { Usage } from "../lib/api.js";
 import { formatAIU } from "../lib/format.js";
+import { PALETTE } from "../lib/colors.js";
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
-
-const PALETTE = [
-  "#2563eb",
-  "#e07a5f",
-  "#3a86ff",
-  "#ffb703",
-  "#8ecae6",
-  "#c1121f",
-  "#588157",
-  "#9d4edd",
-  "#f4a261",
-  "#219ebc",
-];
 
 interface ChartDataset {
   label: string;
