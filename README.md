@@ -8,7 +8,8 @@ A [`gh` CLI](https://cli.github.com/) extension that visualizes your GitHub Copi
 
 `gh-copilot-usage` reads `~/.copilot/session-store.db` — the local SQLite database the Copilot CLI already keeps on your machine — and turns it into an interactive dashboard. Everything runs locally: the local-DB read path needs no token at all, and the billing cross-check reuses your existing `gh` authentication — there's no separate credential setup.
 
-> **Note:** Usage is aggregated only from the Copilot CLI's local `session-store.db`. It does **not** include Copilot usage from the VS Code extension or other IDE integrations.
+> [!NOTE]
+> Usage is aggregated only from the Copilot CLI's local `session-store.db`. It does **not** include Copilot usage from the VS Code extension or other IDE integrations.
 
 ```bash
 gh extension install mazrean/gh-copilot-usage
