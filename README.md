@@ -57,10 +57,4 @@ The "this month (billing)" card calls the GitHub billing API through your existi
 
 ## Development
 
-See [AGENTS.md](AGENTS.md) for the full architecture and build/test/lint commands. In short:
-
-```bash
-mise run build   # build the frontend and the gh-copilot-usage binary
-mise run test    # go test ./...
-mise run lint    # go vet + staticcheck + stylecheck
-```
+See [DEVELOPMENT.md](DEVELOPMENT.md) for build, test, and lint commands.

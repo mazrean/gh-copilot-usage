@@ -57,10 +57,4 @@ gh copilot-usage --json --dimension model --granularity week
 
 ## 開発
 
-アーキテクチャの詳細やビルド・テスト・lint コマンドについては [AGENTS.md](AGENTS.md) を参照してください。要約すると次のとおりです。
-
-```bash
-mise run build   # フロントエンドと gh-copilot-usage バイナリをビルド
-mise run test    # go test ./...
-mise run lint    # go vet + staticcheck + stylecheck
-```
+ビルド・テスト・lint コマンドについては [DEVELOPMENT.md](DEVELOPMENT.md)（英語）を参照してください。
