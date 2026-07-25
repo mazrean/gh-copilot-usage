@@ -4,5 +4,21 @@
   "labels": ["dependencies"],
   "gomod": {
     "postUpdateOptions": ["gomodTidy"]
+  },
+  "allowedCommands": [
+    "^go tool templ generate$",
+    "^pnpm --dir frontend install --frozen-lockfile$",
+    "^pnpm --dir frontend build$",
+    "^go mod tidy$"
+  ],
+  "postUpgradeTasks": {
+    "commands": [
+      "go tool templ generate",
+      "pnpm --dir frontend install --frozen-lockfile",
+      "pnpm --dir frontend build",
+      "go mod tidy"
+    ],
+    "fileFilters": ["go.mod", "go.sum"],
+    "executionMode": "branch"
   }
 }
