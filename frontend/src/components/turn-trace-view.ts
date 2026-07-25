@@ -25,6 +25,7 @@ interface Lane {
   label: string;
   depth: number;
   items: PositionedSpan[];
+  aiu: number;
 }
 
 /**
@@ -59,7 +60,7 @@ export class TurnTraceView extends LitElement {
           ${lanes.map(
             (lane) => html`
               <div class="${lane.depth ? "pl-4" : ""}">
-                <div class="text-[0.75rem] text-muted mb-1">${lane.label}（${lane.items.length}件）</div>
+                <div class="text-[0.75rem] text-muted mb-1">${lane.label}（${formatAIU(lane.aiu)} AIU）</div>
                 <div class="relative h-[22px] bg-[var(--toggle-track-bg)] rounded-md border border-border">
                   ${lane.items.map(
                     (p) => html`
@@ -133,12 +134,16 @@ export class TurnTraceView extends LitElement {
     // sub-agent lanes keep their first-appearance order otherwise.
     laneOrder.sort((a, b) => (a === "" ? -1 : b === "" ? 1 : 0));
 
-    const lanes: Lane[] = laneOrder.map((key) => ({
-      key,
-      label: key || "メインエージェント",
-      depth: key ? 1 : 0,
-      items: positioned.filter((p) => (p.span.agentId || "") === key),
-    }));
+    const lanes: Lane[] = laneOrder.map((key) => {
+      const items = positioned.filter((p) => (p.span.agentId || "") === key);
+      return {
+        key,
+        label: key || "メインエージェント",
+        depth: key ? 1 : 0,
+        items,
+        aiu: items.reduce((sum, p) => sum + p.span.aiu, 0),
+      };
+    });
 
     return { totalAIU, lanes };
   }
