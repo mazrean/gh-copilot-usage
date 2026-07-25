@@ -8,6 +8,11 @@ import { PALETTE } from "../lib/colors.js";
 // otherwise round to an invisible sliver.
 const MIN_WIDTH_PCT = 1.5;
 
+// Fixed-pixel gap carved out of each bar's left/right edge so consecutive
+// same-color spans (e.g. two calls in a row by the same agent/model) stay
+// visually distinguishable instead of blending into one block.
+const GAP_PX = 2;
+
 interface PositionedSpan {
   span: TurnEventSpan;
   leftPct: number;
@@ -60,7 +65,7 @@ export class TurnTraceView extends LitElement {
                     (p) => html`
                       <div
                         class="absolute top-0 h-full rounded-sm cursor-default"
-                        style="left:${p.leftPct}%;width:${p.widthPct}%;background:${p.color}"
+                        style="left:calc(${p.leftPct}% + ${GAP_PX / 2}px);width:max(2px, calc(${p.widthPct}% - ${GAP_PX}px));background:${p.color}"
                         @mouseenter=${(e: MouseEvent) => this.#onHover(p.span, e)}
                         @mousemove=${(e: MouseEvent) => this.#onHover(p.span, e)}
                         @mouseleave=${() => this.#onLeave()}
