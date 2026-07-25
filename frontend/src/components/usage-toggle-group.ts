@@ -28,7 +28,7 @@ export class UsageToggleGroup extends LitElement {
           (opt) => html`
             <button
               type="button"
-              class="toggle-btn ${opt.value === this.value ? "toggle-btn-active" : ""}"
+              class="toggle-btn ${opt.value === this.value ? "toggle-btn-active" : "toggle-btn-idle"}"
               aria-pressed=${opt.value === this.value}
               @click=${() => this.#select(opt.value)}
             >

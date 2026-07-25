@@ -30,7 +30,11 @@ export default defineConfig({
   shortcuts: {
     "toggle-group": "inline-flex bg-[var(--toggle-track-bg)] border border-border rounded-md p-0.5 gap-0.5",
     "toggle-btn":
-      "bg-transparent text-fg border border-transparent rounded-[5px] text-[0.85rem] px-3 py-1 cursor-pointer hover:bg-[var(--toggle-track-hover)] active:bg-[var(--toggle-track-active)] focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
+      "bg-transparent text-fg border border-transparent rounded-[5px] text-[0.85rem] px-3 py-1 cursor-pointer focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
+    // Only the unselected/idle buttons react to hover/active — the selected
+    // one keeps its knob background regardless, same as Primer's
+    // SegmentedControl (`.Button:not([aria-pressed='true'], [aria-disabled='true'])`).
+    "toggle-btn-idle": "hover:bg-[var(--toggle-track-hover)] active:bg-[var(--toggle-track-active)]",
     "toggle-btn-active": "bg-[var(--toggle-knob-bg)] text-fg border-border font-semibold",
     "group-box": "bg-card border border-border rounded-md p-4 [box-shadow:var(--shadow-md)]",
     "group-title": "text-[0.85rem] font-semibold text-muted mb-2.5",
