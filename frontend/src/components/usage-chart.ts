@@ -47,7 +47,10 @@ export class UsageChart extends LitElement {
       for (const item of items) {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = `chart-legend-item${item.hidden ? " chart-legend-item-hidden" : ""}`;
+        // Written as two full literal strings (not a template-interpolated
+        // suffix) so UnoCSS's static class scanner can see "chart-legend-item"
+        // as a whole token and actually generate its rules.
+        button.className = item.hidden ? "chart-legend-item chart-legend-item-hidden" : "chart-legend-item";
         button.title = item.text;
         button.onclick = () => {
           if (item.datasetIndex == null) return;
@@ -81,11 +84,13 @@ export class UsageChart extends LitElement {
 
   render() {
     return html`
-      <div class="chart-wrap flex flex-col gap-3">
-        <div class="relative min-w-[480px] h-[420px]">
-          <canvas></canvas>
+      <div class="chart-wrap">
+        <div class="flex flex-row items-stretch gap-4 h-[420px]">
+          <div class="relative min-w-[480px] flex-1">
+            <canvas></canvas>
+          </div>
+          <div class="chart-legend"></div>
         </div>
-        <div class="chart-legend"></div>
       </div>
     `;
   }
