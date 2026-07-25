@@ -1,5 +1,5 @@
-import { LitElement, html } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { LitElement, html, nothing } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import type { TurnEventSpan } from "../lib/api.js";
 import { formatAIU, formatDurationMs } from "../lib/format.js";
 import { PALETTE } from "../lib/colors.js";
@@ -32,6 +32,10 @@ interface Lane {
 export class TurnTraceView extends LitElement {
   @property({ attribute: false }) spans: TurnEventSpan[] = [];
 
+  @state() private hovered: TurnEventSpan | null = null;
+  @state() private hoverX = 0;
+  @state() private hoverY = 0;
+
   createRenderRoot() {
     return this;
   }
@@ -42,7 +46,7 @@ export class TurnTraceView extends LitElement {
     const ticks = [0, 0.25, 0.5, 0.75, 1];
 
     return html`
-      <div class="chart-wrap flex flex-col gap-2">
+      <div class="chart-wrap flex flex-col gap-2 relative">
         <div class="flex justify-between text-[0.7rem] text-muted">
           ${ticks.map((t) => html`<span>${formatAIU(totalAIU * t)}</span>`)}
         </div>
@@ -55,9 +59,11 @@ export class TurnTraceView extends LitElement {
                   ${lane.items.map(
                     (p) => html`
                       <div
-                        class="absolute top-0 h-full rounded-sm"
+                        class="absolute top-0 h-full rounded-sm cursor-default"
                         style="left:${p.leftPct}%;width:${p.widthPct}%;background:${p.color}"
-                        title=${this.#tooltip(p.span)}
+                        @mouseenter=${(e: MouseEvent) => this.#onHover(p.span, e)}
+                        @mousemove=${(e: MouseEvent) => this.#onHover(p.span, e)}
+                        @mouseleave=${() => this.#onLeave()}
                       ></div>
                     `,
                   )}
@@ -66,6 +72,32 @@ export class TurnTraceView extends LitElement {
             `,
           )}
         </div>
+        ${this.hovered ? this.#renderTooltip(this.hovered) : nothing}
+      </div>
+    `;
+  }
+
+  #onHover(span: TurnEventSpan, e: MouseEvent) {
+    this.hovered = span;
+    this.hoverX = e.clientX;
+    this.hoverY = e.clientY;
+  }
+
+  #onLeave() {
+    this.hovered = null;
+  }
+
+  #renderTooltip(span: TurnEventSpan) {
+    return html`
+      <div
+        class="fixed z-[110] pointer-events-none text-[0.75rem] bg-card border border-border rounded-md px-2.5 py-1.5 [box-shadow:var(--shadow-md)] leading-relaxed"
+        style="left:${this.hoverX + 12}px;top:${this.hoverY + 12}px"
+      >
+        <div class="font-semibold">${span.model}</div>
+        <div>${formatAIU(span.aiu)} AIU</div>
+        ${span.durationMs ? html`<div class="text-muted">${formatDurationMs(span.durationMs)}</div>` : nothing}
+        ${span.initiator ? html`<div class="text-muted">${span.initiator}</div>` : nothing}
+        ${span.finishReason ? html`<div class="text-muted">${span.finishReason}</div>` : nothing}
       </div>
     `;
   }
@@ -104,14 +136,6 @@ export class TurnTraceView extends LitElement {
     }));
 
     return { totalAIU, lanes };
-  }
-
-  #tooltip(span: TurnEventSpan): string {
-    const parts = [`${span.model}`, `${formatAIU(span.aiu)} AIU`];
-    if (span.durationMs) parts.push(formatDurationMs(span.durationMs));
-    if (span.initiator) parts.push(span.initiator);
-    if (span.finishReason) parts.push(span.finishReason);
-    return parts.join(" ・ ");
   }
 }
 
