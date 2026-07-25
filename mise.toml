@@ -27,7 +27,7 @@ outputs = ["internal/server/templates/*_templ.go"]
 [tasks."build:go"]
 description = "Build the gh-copilot-usage binary"
 depends = ["build:frontend", "generate"]
-run = "go build ./..."
+run = "go build -o gh-copilot-usage ."
 
 [tasks.build]
 description = "Build the frontend and the Go binary"

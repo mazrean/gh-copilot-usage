@@ -25,11 +25,13 @@ export default defineConfig({
       card: "var(--card)",
       accent: "var(--accent)",
       danger: "var(--danger)",
+      hover: "var(--hover)",
     },
   },
   shortcuts: {
     "toggle-group": "inline-flex bg-bg-subtle border border-border rounded-md p-0.5 gap-0.5",
-    "toggle-btn": "bg-transparent text-muted border border-transparent rounded-[5px] text-[0.85rem] px-3 py-1 cursor-pointer",
+    "toggle-btn":
+      "bg-transparent text-muted border border-transparent rounded-[5px] text-[0.85rem] px-3 py-1 cursor-pointer hover:bg-hover focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
     "toggle-btn-active": "bg-card text-fg border-border font-semibold [box-shadow:var(--shadow)]",
     "group-box": "bg-card border border-border rounded-md p-4 [box-shadow:var(--shadow)]",
     "group-title": "text-[0.85rem] font-semibold text-muted mb-2.5",
@@ -41,7 +43,8 @@ export default defineConfig({
     "modal-backdrop": "fixed inset-0 bg-[rgba(27,31,36,0.5)] flex items-start justify-center py-12 px-4 z-[100]",
     modal: "bg-card border border-border rounded-md [box-shadow:0_8px_24px_rgba(140,149,159,0.3)] max-w-[640px] w-full max-h-[calc(100vh-96px)] flex flex-col",
     "modal-header": "flex items-center justify-between px-4 py-3.5 border-b border-border",
-    "modal-close": "bg-transparent border-none text-muted text-[1.2rem] cursor-pointer leading-none px-2 py-1",
+    "modal-close":
+      "bg-transparent border-none text-muted text-[1.2rem] cursor-pointer leading-none px-2 py-1 rounded-md hover:bg-hover focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
     "modal-body": "p-4 overflow-y-auto",
     "modal-section-title": "text-[0.85rem] font-semibold mt-4 mb-2",
     "checkpoint-item": "border border-border rounded-md px-3 py-2.5 mb-2",
@@ -49,6 +52,12 @@ export default defineConfig({
   },
   preflights: [
     {
+      // Values are GitHub's own Primer design tokens (@primer/primitives
+      // functional/themes/{light,dark}.css) — fgColor-*/bgColor-*/
+      // borderColor-*/shadow-resting-small/control-*/focus-outline-color —
+      // copied here rather than importing the full multi-theme stylesheet,
+      // since this app switches on prefers-color-scheme, not Primer's
+      // data-color-mode attribute.
       getCSS: () => `
         :root {
           color-scheme: light dark;
@@ -60,19 +69,23 @@ export default defineConfig({
           --card: #ffffff;
           --accent: #0969da;
           --danger: #d1242f;
-          --shadow: 0 1px 0 rgba(31, 35, 40, 0.04);
+          --shadow: 0 1px 1px 0 rgba(31, 35, 40, 0.04), 0 1px 2px 0 rgba(31, 35, 40, 0.03);
+          --hover: rgba(129, 139, 152, 0.1);
+          --focus-ring: #0969da;
         }
         @media (prefers-color-scheme: dark) {
           :root {
             --bg: #0d1117;
-            --bg-subtle: #161b22;
-            --fg: #e6edf3;
-            --muted: #8b949e;
-            --border: #30363d;
+            --bg-subtle: #212830;
+            --fg: #f0f6fc;
+            --muted: #9198a1;
+            --border: #3d444d;
             --card: #0d1117;
-            --accent: #58a6ff;
+            --accent: #4493f8;
             --danger: #f85149;
-            --shadow: 0 0 transparent;
+            --shadow: 0 1px 1px 0 rgba(1, 4, 9, 0.6), 0 1px 3px 0 rgba(1, 4, 9, 0.6);
+            --hover: rgba(101, 108, 118, 0.2);
+            --focus-ring: #1f6feb;
           }
         }
         * { box-sizing: border-box; }
