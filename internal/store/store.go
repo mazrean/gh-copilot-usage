@@ -447,13 +447,36 @@ type SessionModelUsage struct {
 	Tokens *TurnTokenUsage `json:"tokens,omitempty"`
 }
 
+// TurnEventSpan is one raw assistant_usage_events row within a turn,
+// preserved at event granularity (rather than summed across the turn like
+// SessionTurnUsage's own DurationMs/TimeToFirstTokenMs/FinishReason) so
+// callers can reconstruct the sequence of calls that made up the turn.
+//
+// AgentID and ParentToolCallID are empty for calls made directly by the main
+// agent. When Copilot CLI delegates to a custom sub-agent, AgentID identifies
+// that sub-agent and ParentToolCallID references the tool call that spawned
+// it, letting a caller nest the sub-agent's spans under the main agent's
+// timeline. Only populated when the underlying session-store.db exposes the
+// per-event detail columns (see hasEventDetailColumns).
+type TurnEventSpan struct {
+	AgentID          string          `json:"agentId,omitempty"`
+	ParentToolCallID string          `json:"parentToolCallId,omitempty"`
+	Initiator        string          `json:"initiator,omitempty"`
+	Model            string          `json:"model"`
+	StartedAt        string          `json:"startedAt,omitempty"`
+	DurationMs       int64           `json:"durationMs,omitempty"`
+	AIU              float64         `json:"aiu"`
+	FinishReason     string          `json:"finishReason,omitempty"`
+	Tokens           *TurnTokenUsage `json:"tokens,omitempty"`
+}
+
 // SessionTurnUsage is one turn's AIU contribution within a single session,
 // broken down by model. TurnIndex is -1 for usage events with no turn_index
 // (turn_index IS NULL), grouped together as "unassigned".
 //
-// AssistantResponse, Timestamp, DurationMs, TimeToFirstTokenMs and
-// FinishReason are only populated when the underlying session-store.db
-// exposes the corresponding columns (older schemas leave them zero/empty).
+// AssistantResponse, Timestamp, DurationMs, TimeToFirstTokenMs, FinishReason
+// and Spans are only populated when the underlying session-store.db exposes
+// the corresponding columns (older schemas leave them zero/empty/nil).
 type SessionTurnUsage struct {
 	TurnIndex          int                 `json:"turnIndex"`
 	AIU                float64             `json:"aiu"`
@@ -464,6 +487,7 @@ type SessionTurnUsage struct {
 	TimeToFirstTokenMs float64             `json:"timeToFirstTokenMs,omitempty"`
 	FinishReason       string              `json:"finishReason,omitempty"`
 	ByModel            []SessionModelUsage `json:"byModel"`
+	Spans              []TurnEventSpan     `json:"spans,omitempty"`
 }
 
 // SessionDetail is the drill-down view for a single session: its metadata,
@@ -611,6 +635,9 @@ func (s *Store) SessionDetail(ctx context.Context, id string) (*SessionDetail, e
 		if err := s.fillTurnMeta(ctx, id, turns); err != nil {
 			return nil, err
 		}
+		if err := s.fillTurnSpans(ctx, id, turns); err != nil {
+			return nil, err
+		}
 	}
 
 	msgQuery := `
@@ -720,6 +747,60 @@ func (s *Store) fillTurnMeta(ctx context.Context, sessionID string, turns []Sess
 		turns[i].DurationMs = m.durationMs
 		turns[i].TimeToFirstTokenMs = m.ttft
 		turns[i].FinishReason = m.finishReason
+	}
+	return nil
+}
+
+// fillTurnSpans populates Spans on each turn in turns (in place) with one
+// TurnEventSpan per assistant_usage_events row, in the order the events
+// occurred (turn_index, id ASC). Unlike fillTurnMeta this does not aggregate
+// across events, so callers can see the individual calls (and, once Copilot
+// CLI populates agent_id/parent_tool_call_id for sub-agent delegation, their
+// hierarchy) that made up a turn. The unassigned bucket (TurnIndex -1) is not
+// covered, matching fillTurnMeta.
+func (s *Store) fillTurnSpans(ctx context.Context, sessionID string, turns []SessionTurnUsage) error {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT turn_index, model, COALESCE(created_at, ''), duration_ms, total_nano_aiu,
+		       COALESCE(agent_id, ''), COALESCE(parent_tool_call_id, ''),
+		       COALESCE(initiator, ''), COALESCE(finish_reason, ''),
+		       input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens
+		FROM assistant_usage_events
+		WHERE session_id = ? AND turn_index IS NOT NULL
+		ORDER BY turn_index ASC, id ASC`, sessionID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	byTurn := make(map[int][]TurnEventSpan)
+	for rows.Next() {
+		var turnIndex int
+		var span TurnEventSpan
+		var duration sql.NullInt64
+		var nano sql.NullInt64
+		var input, output, cacheRead, cacheWrite, reasoning sql.NullInt64
+		if err := rows.Scan(&turnIndex, &span.Model, &span.StartedAt, &duration, &nano,
+			&span.AgentID, &span.ParentToolCallID, &span.Initiator, &span.FinishReason,
+			&input, &output, &cacheRead, &cacheWrite, &reasoning); err != nil {
+			return err
+		}
+		span.DurationMs = duration.Int64
+		span.AIU = float64(nano.Int64) / nanoPerAIU
+		span.Tokens = &TurnTokenUsage{
+			InputTokens:      input.Int64,
+			OutputTokens:     output.Int64,
+			CacheReadTokens:  cacheRead.Int64,
+			CacheWriteTokens: cacheWrite.Int64,
+			ReasoningTokens:  reasoning.Int64,
+		}
+		byTurn[turnIndex] = append(byTurn[turnIndex], span)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for i := range turns {
+		turns[i].Spans = byTurn[turns[i].TurnIndex]
 	}
 	return nil
 }

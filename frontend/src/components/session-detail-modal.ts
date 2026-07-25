@@ -9,6 +9,7 @@ import {
 } from "../lib/api.js";
 import { formatAIU, formatDurationMs, formatTimestamp, formatTokenCount } from "../lib/format.js";
 import "./turn-usage-chart.js";
+import "./turn-trace-view.js";
 
 @customElement("session-detail-modal")
 export class SessionDetailModal extends LitElement {
@@ -162,6 +163,9 @@ export class SessionDetailModal extends LitElement {
           ? html`<div class="text-[0.78rem] text-muted mt-1">${latencyParts.join(" ／ ")}</div>`
           : nothing}
         ${this.#renderTokenBreakdown(t.byModel)}
+        ${t.spans && t.spans.length
+          ? html`<turn-trace-view class="mt-2" .spans=${t.spans}></turn-trace-view>`
+          : nothing}
         ${t.userMessage
           ? html`<div class="text-[0.82rem] text-muted mt-2 [white-space:pre-wrap]">${t.userMessage}</div>`
           : nothing}
