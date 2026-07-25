@@ -2,13 +2,45 @@ export function formatAIU(value: number): string {
   return value.toFixed(3);
 }
 
+// Converts a "yyyy-mm-dd..." prefix (ISO date or datetime) into "yyyy/mm/dd".
+function toSlashDate(isoDate: string): string {
+  return isoDate.slice(0, 10).replaceAll("-", "/");
+}
+
 export function formatDateRange(firstAt: string, lastAt: string): string {
   if (!firstAt || !lastAt) return "-";
-  return `${firstAt.slice(0, 10)} 〜 ${lastAt.slice(0, 10)}`;
+  return `${toSlashDate(firstAt)} 〜 ${toSlashDate(lastAt)}`;
 }
 
 export function formatTimestamp(value: string): string {
-  return value.slice(0, 16).replace("T", " ");
+  return `${toSlashDate(value)} ${value.slice(11, 16)}`;
+}
+
+function addDaysUTC(isoDate: string, days: number): { year: number; month: number; day: number } {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return { year: dt.getUTCFullYear(), month: dt.getUTCMonth() + 1, day: dt.getUTCDate() };
+}
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// Formats an x-axis bucket key from /api/usage for display, given its granularity.
+// - day:   "2026-07-25"                          -> "2026/07/25"
+// - month: "2026-07"                              -> "2026/07"
+// - week:  "2026-07-20" (Monday, start of week)  -> the Mon-Sun date range:
+//            same month           -> "2026/07/20~26"
+//            crosses month/year   -> "2026/07/27~08/02"
+export function formatBucketLabel(bucket: string, granularity: "day" | "week" | "month"): string {
+  if (granularity === "day") return toSlashDate(bucket);
+  if (granularity === "month") return bucket.replaceAll("-", "/");
+
+  const [startY, startM, startD] = bucket.split("-").map(Number);
+  const end = addDaysUTC(bucket, 6);
+  const start = `${startY}/${pad2(startM)}/${pad2(startD)}`;
+  if (end.year === startY && end.month === startM) {
+    return `${start}~${pad2(end.day)}`;
+  }
+  return `${start}~${pad2(end.month)}/${pad2(end.day)}`;
 }
 
 export function formatDurationMs(ms: number): string {

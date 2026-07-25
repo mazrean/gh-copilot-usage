@@ -56,8 +56,9 @@ func (g Granularity) bucketExpr() (string, error) {
 	case GranDay:
 		return "strftime('%Y-%m-%d', created_at)", nil
 	case GranWeek:
-		// ISO-ish week label. %W treats Monday as the first day of the week.
-		return "strftime('%Y-W%W', created_at)", nil
+		// Bucket by the Monday (start of week) date, so the frontend can
+		// render an actual date range instead of an opaque week number.
+		return "date(created_at, '-6 days', 'weekday 1')", nil
 	case GranMonth:
 		return "strftime('%Y-%m', created_at)", nil
 	default:
