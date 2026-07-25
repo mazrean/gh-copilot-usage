@@ -8,6 +8,8 @@ GitHub Copilot CLI の AI クレジット（AIC）使用量を、積み上げ時
 
 `gh-copilot-usage` は、Copilot CLI がローカルに保持している SQLite データベース `~/.copilot/session-store.db` を読み取り、インタラクティブなダッシュボードとして表示する。すべてローカルで完結し、ローカル DB の読み取りにはトークンが一切不要で、課金額とのクロスチェックも既存の `gh` 認証を再利用するため、別途の認証情報設定は必要ない。
 
+> **注意:** 集計対象は Copilot CLI のローカル `session-store.db` に記録された使用量のみ。VSCode 拡張機能など、他の IDE 統合経由の Copilot 利用は含まれない。
+
 ```bash
 gh extension install mazrean/gh-copilot-usage
 gh copilot-usage
