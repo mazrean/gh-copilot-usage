@@ -1,0 +1,47 @@
+version: 2
+
+# gh extension install expects release assets named
+# gh-<extension>-<os>-<arch>[.exe] with no archive wrapping.
+# https://docs.github.com/en/github-cli/github-cli/creating-github-cli-extensions
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: gh-copilot-usage
+    binary: gh-copilot-usage
+    main: .
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: gh-copilot-usage
+    formats:
+      - binary
+    name_template: >-
+      gh-copilot-usage-{{ .Os }}-{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+
+release:
+  github:
+    owner: mazrean
+    name: copilot-cli-usage
