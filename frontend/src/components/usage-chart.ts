@@ -9,6 +9,7 @@ import {
   Legend,
   Tooltip,
   type ChartConfiguration,
+  type Plugin,
 } from "chart.js";
 import type { Usage } from "../lib/api.js";
 import { formatAIU } from "../lib/format.js";
@@ -29,7 +30,44 @@ export class UsageChart extends LitElement {
   @property({ attribute: false }) usage: Usage | null = null;
 
   @query("canvas") canvasEl!: HTMLCanvasElement;
+  @query(".chart-legend") legendEl!: HTMLDivElement;
   private chart?: Chart<"bar">;
+
+  // Chart.js draws its built-in legend inside the fixed-height canvas, so a
+  // large session/model count pushes the plot area to nothing. Rendering the
+  // legend as its own scrollable HTML block (official "HTML Legend" recipe)
+  // keeps the plot area a stable size regardless of label count.
+  #htmlLegendPlugin: Plugin<"bar"> = {
+    id: "htmlLegend",
+    afterUpdate: (chart) => {
+      const container = this.legendEl;
+      if (!container) return;
+      container.replaceChildren();
+      const items = chart.options.plugins?.legend?.labels?.generateLabels?.(chart) ?? [];
+      for (const item of items) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `chart-legend-item${item.hidden ? " chart-legend-item-hidden" : ""}`;
+        button.title = item.text;
+        button.onclick = () => {
+          if (item.datasetIndex == null) return;
+          chart.setDatasetVisibility(item.datasetIndex, !chart.isDatasetVisible(item.datasetIndex));
+          chart.update();
+        };
+
+        const swatch = document.createElement("span");
+        swatch.className = "chart-legend-swatch";
+        swatch.style.backgroundColor = String(item.fillStyle ?? item.strokeStyle ?? "");
+
+        const label = document.createElement("span");
+        label.className = "chart-legend-label";
+        label.textContent = item.text;
+
+        button.append(swatch, label);
+        container.append(button);
+      }
+    },
+  };
 
   createRenderRoot() {
     return this;
@@ -43,8 +81,11 @@ export class UsageChart extends LitElement {
 
   render() {
     return html`
-      <div class="chart-wrap">
-        <canvas class="min-w-[480px] h-[420px]"></canvas>
+      <div class="chart-wrap flex flex-col gap-3">
+        <div class="relative min-w-[480px] h-[420px]">
+          <canvas></canvas>
+        </div>
+        <div class="chart-legend"></div>
       </div>
     `;
   }
@@ -77,6 +118,7 @@ export class UsageChart extends LitElement {
     return {
       type: "bar",
       data: this.#buildData(),
+      plugins: [this.#htmlLegendPlugin],
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -85,7 +127,9 @@ export class UsageChart extends LitElement {
           y: { stacked: true, title: { display: true, text: "AIU" } },
         },
         plugins: {
-          legend: { position: "bottom" },
+          // Rendered via #htmlLegendPlugin instead so a large label count
+          // scrolls in its own block rather than shrinking the plot area.
+          legend: { display: false },
           tooltip: {
             callbacks: {
               label: (ctx) => `${ctx.dataset.label}: ${formatAIU(ctx.parsed.y ?? 0)} AIU`,
