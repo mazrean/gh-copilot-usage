@@ -1,0 +1,21 @@
+{
+  "name": "gh-copilot-usage-frontend",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1",
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@unocss/vite": "^66.7.5",
+    "typescript": "^7.0.2",
+    "unocss": "^66.7.5",
+    "vite": "^8.1.5"
+  }
+}
