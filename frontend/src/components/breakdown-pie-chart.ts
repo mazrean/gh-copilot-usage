@@ -2,6 +2,7 @@ import { LitElement, html } from "lit";
 import { customElement, property, query } from "lit/decorators.js";
 import { Chart, PieController, ArcElement, Legend, Tooltip, type ChartConfiguration } from "chart.js";
 import { formatAIU } from "../lib/format.js";
+import { t } from "../lib/i18n.js";
 import { PALETTE } from "../lib/colors.js";
 
 Chart.register(PieController, ArcElement, Legend, Tooltip);
@@ -68,7 +69,8 @@ export class BreakdownPieChart extends LitElement {
           legend: { position: "bottom" },
           tooltip: {
             callbacks: {
-              label: (ctx) => `${ctx.label}: ${formatAIU(typeof ctx.parsed === "number" ? ctx.parsed : 0)} AIU`,
+              label: (ctx) =>
+                `${ctx.label}: ${formatAIU(typeof ctx.parsed === "number" ? ctx.parsed : 0)} ${t("unitAIU")}`,
             },
           },
         },

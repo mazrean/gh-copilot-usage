@@ -12,6 +12,7 @@ import {
 } from "chart.js";
 import type { SessionTurnUsage } from "../lib/api.js";
 import { formatAIU, formatDurationMs } from "../lib/format.js";
+import { t as translate } from "../lib/i18n.js";
 import { PALETTE } from "../lib/colors.js";
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
@@ -51,7 +52,7 @@ export class TurnUsageChart extends LitElement {
   }
 
   #buildData() {
-    const labels = this.turns.map((t) => (t.turnIndex >= 0 ? `#${t.turnIndex}` : "未割当"));
+    const labels = this.turns.map((t) => (t.turnIndex >= 0 ? `#${t.turnIndex}` : translate("unassigned")));
     const models: string[] = [];
     for (const t of this.turns) {
       for (const m of t.byModel) {
@@ -75,18 +76,18 @@ export class TurnUsageChart extends LitElement {
         maintainAspectRatio: false,
         scales: {
           x: { stacked: true },
-          y: { stacked: true, title: { display: true, text: "AIU" } },
+          y: { stacked: true, title: { display: true, text: translate("unitAIU") } },
         },
         plugins: {
           legend: { position: "bottom" },
           tooltip: {
             callbacks: {
-              label: (ctx) => `${ctx.dataset.label}: ${formatAIU(ctx.parsed.y ?? 0)} AIU`,
+              label: (ctx) => `${ctx.dataset.label}: ${formatAIU(ctx.parsed.y ?? 0)} ${translate("unitAIU")}`,
               footer: (items) => {
                 const turn = this.turns[items[0]?.dataIndex ?? -1];
                 if (!turn) return "";
                 const parts: string[] = [];
-                if (turn.durationMs) parts.push(`所要時間: ${formatDurationMs(turn.durationMs)}`);
+                if (turn.durationMs) parts.push(translate("durationLabel", { value: formatDurationMs(turn.durationMs) }));
                 return parts.join("\n");
               },
             },
