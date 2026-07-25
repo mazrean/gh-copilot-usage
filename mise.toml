@@ -5,3 +5,40 @@ gh = "latest"
 go = "1.26"
 "go:golang.org/x/tools/gopls" = "latest"
 goreleaser = "2"
+
+node = "26.5.0"
+pnpm = "10.34.5"
+
+[tasks."build:frontend"]
+description = "Build the Lit + UnoCSS frontend into internal/server/web (go:embed target)"
+run = """
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir frontend build
+"""
+sources = ["frontend/src/**/*", "frontend/*.ts", "frontend/*.json", "frontend/pnpm-lock.yaml"]
+outputs = ["internal/server/web/**/*"]
+
+[tasks.generate]
+description = "Generate Go code from templ templates"
+run = "go tool templ generate"
+sources = ["internal/server/templates/*.templ"]
+outputs = ["internal/server/templates/*_templ.go"]
+
+[tasks."build:go"]
+description = "Build the gh-copilot-usage binary"
+depends = ["build:frontend", "generate"]
+run = "go build -o gh-copilot-usage ."
+
+[tasks.build]
+description = "Build the frontend and the Go binary"
+depends = ["build:frontend", "build:go"]
+
+[tasks.lint]
+description = "Run go vet + staticcheck + stylecheck (tools/lint)"
+depends = ["build:frontend", "generate"]
+run = "go tool lint ./..."
+
+[tasks.test]
+description = "Run Go tests"
+depends = ["build:frontend", "generate"]
+run = "go test ./..."

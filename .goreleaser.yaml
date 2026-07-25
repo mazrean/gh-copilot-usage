@@ -6,6 +6,8 @@ version: 2
 
 before:
   hooks:
+    - mise run build:frontend
+    - mise run generate
     - go mod tidy
 
 builds:

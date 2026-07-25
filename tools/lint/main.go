@@ -4,6 +4,10 @@
 package main
 
 import (
+	"go/ast"
+	"go/token"
+	"strings"
+
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/appends"
@@ -64,5 +68,49 @@ func main() {
 		analyzers = append(analyzers, a.Analyzer)
 	}
 	analyzers = append(analyzers, modernize.Suite...)
+	for i, a := range analyzers {
+		analyzers[i] = skipGenerated(a)
+	}
 	multichecker.Main(analyzers...)
+}
+
+// skipGenerated wraps an analyzer so it doesn't report diagnostics in files
+// carrying the standard "Code generated ... DO NOT EDIT." header (e.g.
+// templ/kessoku output) — those files are regenerated from source, not
+// authored by hand. Diagnostics are filtered at report time rather than by
+// pre-trimming pass.Files, since some checks (e.g. staticcheck's SSA-based
+// analyzers) derive their findings from a Requires dependency built over the
+// full, unfiltered file set.
+func skipGenerated(a *analysis.Analyzer) *analysis.Analyzer {
+	run := a.Run
+	wrapped := *a
+	wrapped.Run = func(pass *analysis.Pass) (any, error) {
+		generated := make(map[*token.File]bool)
+		for _, f := range pass.Files {
+			if isGenerated(f) {
+				generated[pass.Fset.File(f.Pos())] = true
+			}
+		}
+		report := pass.Report
+		newPass := *pass
+		newPass.Report = func(d analysis.Diagnostic) {
+			if generated[pass.Fset.File(d.Pos)] {
+				return
+			}
+			report(d)
+		}
+		return run(&newPass)
+	}
+	return &wrapped
+}
+
+func isGenerated(f *ast.File) bool {
+	for _, cg := range f.Comments {
+		for _, c := range cg.List {
+			if strings.Contains(c.Text, "Code generated") && strings.Contains(c.Text, "DO NOT EDIT") {
+				return true
+			}
+		}
+	}
+	return false
 }

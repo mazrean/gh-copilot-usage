@@ -11,7 +11,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/a-h/templ"
+
 	"github.com/mazrean/gh-copilot-usage/internal/billing"
+	"github.com/mazrean/gh-copilot-usage/internal/server/templates"
 	"github.com/mazrean/gh-copilot-usage/internal/store"
 )
 
@@ -23,11 +26,12 @@ var webFS embed.FS
 func New(st *store.Store, bc *billing.Client) http.Handler {
 	mux := http.NewServeMux()
 
-	staticFS, err := fs.Sub(webFS, "web")
+	assetsFS, err := fs.Sub(webFS, "web")
 	if err != nil {
 		panic(err) // embed misconfiguration, not a runtime condition
 	}
-	mux.Handle("/", http.FileServer(http.FS(staticFS)))
+	mux.Handle("/", templ.Handler(templates.Shell()))
+	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assetsFS))))
 
 	mux.HandleFunc("/api/usage", func(w http.ResponseWriter, r *http.Request) {
 		dim := store.Dimension(r.URL.Query().Get("dimension"))

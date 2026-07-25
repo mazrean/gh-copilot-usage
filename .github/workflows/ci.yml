@@ -15,43 +15,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+      - uses: jdx/mise-action@v4
 
-      - name: go tool lint
-        run: go tool lint ./...
+      - name: mise run lint
+        run: mise run lint
 
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+      - uses: jdx/mise-action@v4
 
-      - name: go test
-        run: go test -race ./...
+      - name: mise run test
+        run: mise run test
 
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+      - uses: jdx/mise-action@v4
 
-      - name: go build
-        run: go build ./...
+      - name: mise run build
+        run: mise run build
 
       - name: goreleaser check
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: check
+        run: goreleaser check
