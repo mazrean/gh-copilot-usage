@@ -32,10 +32,9 @@ func makeDB(t *testing.T, rows [][4]any) string {
 		summary TEXT, created_at TEXT, updated_at TEXT)`); err != nil {
 		t.Fatalf("create sessions: %v", err)
 	}
-	if _, err := db.Exec(`CREATE TABLE checkpoints (
-		id INTEGER PRIMARY KEY, session_id TEXT, checkpoint_number INTEGER,
-		title TEXT, overview TEXT, work_done TEXT, next_steps TEXT, created_at TEXT)`); err != nil {
-		t.Fatalf("create checkpoints: %v", err)
+	if _, err := db.Exec(`CREATE TABLE turns (
+		id INTEGER PRIMARY KEY, session_id TEXT, turn_index INTEGER, user_message TEXT)`); err != nil {
+		t.Fatalf("create turns: %v", err)
 	}
 	for _, r := range rows {
 		if _, err := db.Exec(
@@ -63,8 +62,8 @@ func insertSession(t *testing.T, path, id, summary, repository, branch string) {
 	}
 }
 
-// insertCheckpoint adds a checkpoints row for a session.
-func insertCheckpoint(t *testing.T, path, sessionID string, number int, title, overview, workDone, nextSteps string) {
+// insertTurn adds a turns row for a session.
+func insertTurn(t *testing.T, path, sessionID string, turnIndex int, userMessage string) {
 	t.Helper()
 	db, err := sql.Open("sqlite", "file:"+path)
 	if err != nil {
@@ -72,10 +71,29 @@ func insertCheckpoint(t *testing.T, path, sessionID string, number int, title, o
 	}
 	defer db.Close()
 	if _, err := db.Exec(
-		`INSERT INTO checkpoints(session_id, checkpoint_number, title, overview, work_done, next_steps, created_at)
-		 VALUES(?,?,?,?,?,?,?)`,
-		sessionID, number, title, overview, workDone, nextSteps, "2026-07-25T01:00:00.000Z"); err != nil {
-		t.Fatalf("insert checkpoint: %v", err)
+		`INSERT INTO turns(session_id, turn_index, user_message) VALUES(?,?,?)`,
+		sessionID, turnIndex, userMessage); err != nil {
+		t.Fatalf("insert turn: %v", err)
+	}
+}
+
+// insertUsageEvent adds an assistant_usage_events row with an explicit
+// turn_index (nil turnIndex stores SQL NULL).
+func insertUsageEvent(t *testing.T, path, sessionID string, turnIndex *int, model string, nanoAIU int64, createdAt string) {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	var ti sql.NullInt64
+	if turnIndex != nil {
+		ti = sql.NullInt64{Int64: int64(*turnIndex), Valid: true}
+	}
+	if _, err := db.Exec(
+		`INSERT INTO assistant_usage_events(session_id, turn_index, model, total_nano_aiu, created_at)
+		 VALUES(?,?,?,?,?)`, sessionID, ti, model, nanoAIU, createdAt); err != nil {
+		t.Fatalf("insert usage event: %v", err)
 	}
 }
 
@@ -226,13 +244,13 @@ func TestSessionLabelFallsBackToKeyWhenNoMetadata(t *testing.T) {
 }
 
 func TestSessionDetail(t *testing.T) {
-	path := makeDB(t, [][4]any{
-		{"s1", "gpt-5-mini", int64(500_000_000), "2026-07-25T01:00:00.000Z"},
-		{"s1", "claude", int64(1_000_000_000), "2026-07-25T02:00:00.000Z"},
-	})
+	path := makeDB(t, nil)
 	insertSession(t, path, "s1", "Fix login bug", "example-org/example-repo", "main")
-	insertCheckpoint(t, path, "s1", 1, "Initial exploration", "looked around", "read files", "start implementing")
-	insertCheckpoint(t, path, "s1", 2, "Implementation", "wrote code", "added feature", "write tests")
+	turn0, turn1 := 0, 1
+	insertUsageEvent(t, path, "s1", &turn0, "gpt-5-mini", 500_000_000, "2026-07-25T01:00:00.000Z")
+	insertUsageEvent(t, path, "s1", &turn1, "claude", 1_000_000_000, "2026-07-25T02:00:00.000Z")
+	insertTurn(t, path, "s1", 0, "fix the login bug please")
+	insertTurn(t, path, "s1", 1, "now add tests")
 
 	st, err := Open(path)
 	if err != nil {
@@ -250,8 +268,45 @@ func TestSessionDetail(t *testing.T) {
 	if len(d.ByModel) != 2 || d.ByModel[0].Model != "claude" || d.ByModel[0].AIU != 1.0 {
 		t.Fatalf("byModel = %+v, want claude first with 1.0 AIU", d.ByModel)
 	}
-	if len(d.Checkpoints) != 2 || d.Checkpoints[0].Title != "Initial exploration" || d.Checkpoints[1].Title != "Implementation" {
-		t.Fatalf("checkpoints = %+v", d.Checkpoints)
+	if len(d.Turns) != 2 {
+		t.Fatalf("turns = %+v, want 2", d.Turns)
+	}
+	if d.Turns[0].TurnIndex != 0 || d.Turns[0].AIU != 0.5 || d.Turns[0].UserMessage != "fix the login bug please" {
+		t.Fatalf("turn 0 = %+v", d.Turns[0])
+	}
+	if len(d.Turns[0].ByModel) != 1 || d.Turns[0].ByModel[0].Model != "gpt-5-mini" {
+		t.Fatalf("turn 0 byModel = %+v", d.Turns[0].ByModel)
+	}
+	if d.Turns[1].TurnIndex != 1 || d.Turns[1].AIU != 1.0 || d.Turns[1].UserMessage != "now add tests" {
+		t.Fatalf("turn 1 = %+v", d.Turns[1])
+	}
+}
+
+func TestSessionDetailUnassignedTurn(t *testing.T) {
+	path := makeDB(t, nil)
+	insertSession(t, path, "s1", "", "", "")
+	turn0 := 0
+	insertUsageEvent(t, path, "s1", &turn0, "claude", 1_000_000_000, "2026-07-25T02:00:00.000Z")
+	insertUsageEvent(t, path, "s1", nil, "gpt-5-mini", 500_000_000, "2026-07-25T01:00:00.000Z")
+
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	d, err := st.SessionDetail(context.Background(), "s1")
+	if err != nil {
+		t.Fatalf("session detail: %v", err)
+	}
+	if len(d.Turns) != 2 {
+		t.Fatalf("turns = %+v, want 2", d.Turns)
+	}
+	if d.Turns[0].TurnIndex != 0 || d.Turns[0].AIU != 1.0 {
+		t.Fatalf("turn 0 = %+v", d.Turns[0])
+	}
+	if d.Turns[1].TurnIndex != -1 || d.Turns[1].AIU != 0.5 || d.Turns[1].UserMessage != "" {
+		t.Fatalf("unassigned turn = %+v", d.Turns[1])
 	}
 }
 

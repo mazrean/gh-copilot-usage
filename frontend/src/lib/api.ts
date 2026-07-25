@@ -25,13 +25,11 @@ export interface SessionModelUsage {
   rows: number;
 }
 
-export interface SessionCheckpoint {
-  number: number;
-  title: string;
-  overview: string;
-  workDone: string;
-  nextSteps: string;
-  createdAt: string;
+export interface SessionTurnUsage {
+  turnIndex: number;
+  aiu: number;
+  userMessage: string;
+  byModel: SessionModelUsage[];
 }
 
 export interface SessionDetail {
@@ -43,9 +41,9 @@ export interface SessionDetail {
   createdAt: string;
   updatedAt: string;
   // Go serializes a nil slice as `null`, which happens whenever a session
-  // has no usage rows / checkpoints recorded.
+  // has no usage rows / turns recorded.
   byModel: SessionModelUsage[] | null;
-  checkpoints: SessionCheckpoint[] | null;
+  turns: SessionTurnUsage[] | null;
 }
 
 export interface ModelUsage {
