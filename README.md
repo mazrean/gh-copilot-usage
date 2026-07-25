@@ -4,8 +4,6 @@
 
 A [`gh` CLI](https://cli.github.com/) extension that visualizes your GitHub Copilot CLI AI-credit (AIC) usage as a stacked time-series chart, right in your browser — and cross-checks it against GitHub's billing API.
 
-> The screenshots below use synthetic sample data generated for documentation purposes, not any real account's usage.
-
 ## What it does
 
 `gh-copilot-usage` reads `~/.copilot/session-store.db` — the local SQLite database the Copilot CLI already keeps on your machine — and turns it into an interactive dashboard. Everything runs locally: the local-DB read path needs no token at all, and the billing cross-check reuses your existing `gh` authentication — there's no separate credential setup.
