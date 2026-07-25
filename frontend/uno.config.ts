@@ -43,6 +43,14 @@ export default defineConfig({
     "card-value-small": "text-[0.95rem] font-semibold mt-1",
     "card-error": "text-[0.8rem] text-danger",
     "chart-wrap": "bg-card border border-border rounded-md p-4 [box-shadow:var(--shadow-md)] overflow-x-auto",
+    // A large series count (esp. per-session labels) must scroll within its
+    // own strip rather than shrink the plot area above it — see usage-chart.ts.
+    "chart-legend": "flex flex-wrap gap-x-3 gap-y-1 max-h-28 overflow-y-auto pt-2 border-t border-border",
+    "chart-legend-item":
+      "inline-flex items-center gap-1.5 max-w-[220px] bg-transparent border-none rounded-[4px] px-1.5 py-0.5 text-[0.8rem] text-fg cursor-pointer hover:bg-hover focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
+    "chart-legend-item-hidden": "opacity-50 line-through",
+    "chart-legend-swatch": "w-2.5 h-2.5 rounded-[2px] shrink-0",
+    "chart-legend-label": "overflow-hidden text-ellipsis whitespace-nowrap",
     "modal-backdrop": "fixed inset-0 bg-[rgba(27,31,36,0.5)] flex items-start justify-center py-12 px-4 z-[100]",
     modal: "bg-card border border-border rounded-md [box-shadow:0_8px_24px_rgba(140,149,159,0.3)] max-w-[640px] w-full max-h-[calc(100vh-96px)] flex flex-col",
     "modal-header": "flex items-center justify-between px-4 py-3.5 border-b border-border",
