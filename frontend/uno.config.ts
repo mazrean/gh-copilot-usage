@@ -116,7 +116,8 @@ export default defineConfig({
           color: var(--fg);
           padding: 24px;
         }
-        usage-dashboard, usage-summary-cards, usage-chart, session-detail-modal, usage-toggle-group {
+        usage-dashboard, usage-summary-cards, usage-chart, session-detail-modal, usage-toggle-group,
+        breakdown-bar-chart, turn-usage-chart {
           display: block;
         }
       `,

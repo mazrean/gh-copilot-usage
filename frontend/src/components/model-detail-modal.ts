@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { fetchModelDetail, type ApiError, type ModelDetail } from "../lib/api.js";
 import { formatAIU } from "../lib/format.js";
+import "./breakdown-bar-chart.js";
 
 const CATEGORY_LABELS: Record<string, string> = {
   input: "入力",
@@ -97,20 +98,13 @@ export class ModelDetailModal extends LitElement {
       <div class="modal-section-title">トークン種別内訳</div>
       ${d.byCategory === null
         ? html`<div>このデータには入力/出力などの内訳情報がありません</div>`
-        : html`
-            <ul class="list-none m-0 p-0 text-[0.9rem]">
-              ${byCategory.length
-                ? byCategory.map(
-                    (c) => html`
-                      <li class="flex justify-between gap-3 py-1 border-b border-border">
-                        <span>${CATEGORY_LABELS[c.category] ?? c.category}</span>
-                        <span>${formatAIU(c.aiu)} AIU</span>
-                      </li>
-                    `,
-                  )
-                : html`<li>データがありません</li>`}
-            </ul>
-          `}
+        : byCategory.length
+          ? html`
+              <breakdown-bar-chart
+                .items=${byCategory.map((c) => ({ label: CATEGORY_LABELS[c.category] ?? c.category, value: c.aiu }))}
+              ></breakdown-bar-chart>
+            `
+          : html`<div>データがありません</div>`}
     `;
   }
 }
