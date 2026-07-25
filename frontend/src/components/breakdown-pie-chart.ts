@@ -1,30 +1,22 @@
 import { LitElement, html } from "lit";
 import { customElement, property, query } from "lit/decorators.js";
-import {
-  Chart,
-  BarController,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  type ChartConfiguration,
-} from "chart.js";
+import { Chart, PieController, ArcElement, Legend, Tooltip, type ChartConfiguration } from "chart.js";
 import { formatAIU } from "../lib/format.js";
 import { PALETTE } from "../lib/colors.js";
 
-Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
+Chart.register(PieController, ArcElement, Legend, Tooltip);
 
 export interface BreakdownItem {
   label: string;
   value: number;
 }
 
-@customElement("breakdown-bar-chart")
-export class BreakdownBarChart extends LitElement {
+@customElement("breakdown-pie-chart")
+export class BreakdownPieChart extends LitElement {
   @property({ attribute: false }) items: BreakdownItem[] = [];
 
   @query("canvas") canvasEl!: HTMLCanvasElement;
-  private chart?: Chart<"bar">;
+  private chart?: Chart<"pie">;
 
   createRenderRoot() {
     return this;
@@ -65,21 +57,18 @@ export class BreakdownBarChart extends LitElement {
     };
   }
 
-  #buildConfig(): ChartConfiguration<"bar"> {
+  #buildConfig(): ChartConfiguration<"pie"> {
     return {
-      type: "bar",
+      type: "pie",
       data: this.#buildData(),
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: {
-          y: { title: { display: true, text: "AIU" } },
-        },
         plugins: {
-          legend: { display: false },
+          legend: { position: "bottom" },
           tooltip: {
             callbacks: {
-              label: (ctx) => `${formatAIU(ctx.parsed.y ?? 0)} AIU`,
+              label: (ctx) => `${ctx.label}: ${formatAIU(typeof ctx.parsed === "number" ? ctx.parsed : 0)} AIU`,
             },
           },
         },
@@ -90,6 +79,6 @@ export class BreakdownBarChart extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "breakdown-bar-chart": BreakdownBarChart;
+    "breakdown-pie-chart": BreakdownPieChart;
   }
 }

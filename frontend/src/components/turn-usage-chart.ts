@@ -85,6 +85,23 @@ export class TurnUsageChart extends LitElement {
             },
           },
         },
+        onHover: (event, elements) => {
+          const target = event.native?.target as HTMLElement | null;
+          if (target) target.style.cursor = elements.length ? "pointer" : "default";
+        },
+        onClick: (_event, elements) => {
+          const el = elements[0];
+          if (!el) return;
+          const turn = this.turns[el.index];
+          if (!turn) return;
+          this.dispatchEvent(
+            new CustomEvent("turn-click", {
+              detail: { turnIndex: turn.turnIndex },
+              bubbles: true,
+              composed: true,
+            }),
+          );
+        },
       },
     };
   }
