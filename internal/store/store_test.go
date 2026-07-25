@@ -164,7 +164,7 @@ func TestSessionLabelFromSummary(t *testing.T) {
 	path := makeDB(t, [][4]any{
 		{"s1", "m", int64(1_000_000_000), "2026-07-25T01:00:00.000Z"},
 	})
-	insertSession(t, path, "s1", "Tool Overview Session", "", "")
+	insertSession(t, path, "s1", "Fix login bug", "", "")
 
 	st, err := Open(path)
 	if err != nil {
@@ -177,8 +177,8 @@ func TestSessionLabelFromSummary(t *testing.T) {
 		t.Fatalf("aggregate: %v", err)
 	}
 	s1 := find(u, "s1")
-	if s1 == nil || s1.Label != "Tool Overview Session" {
-		t.Fatalf("label = %+v, want %q", s1, "Tool Overview Session")
+	if s1 == nil || s1.Label != "Fix login bug" {
+		t.Fatalf("label = %+v, want %q", s1, "Fix login bug")
 	}
 }
 
@@ -186,7 +186,7 @@ func TestSessionLabelFallsBackToRepository(t *testing.T) {
 	path := makeDB(t, [][4]any{
 		{"s1", "m", int64(1_000_000_000), "2026-07-25T01:00:00.000Z"},
 	})
-	insertSession(t, path, "s1", "", "mazrean/kessoku", "main")
+	insertSession(t, path, "s1", "", "example-org/example-repo", "main")
 
 	st, err := Open(path)
 	if err != nil {
@@ -199,8 +199,8 @@ func TestSessionLabelFallsBackToRepository(t *testing.T) {
 		t.Fatalf("aggregate: %v", err)
 	}
 	s1 := find(u, "s1")
-	if s1 == nil || s1.Label != "mazrean/kessoku (main)" {
-		t.Fatalf("label = %+v, want %q", s1, "mazrean/kessoku (main)")
+	if s1 == nil || s1.Label != "example-org/example-repo (main)" {
+		t.Fatalf("label = %+v, want %q", s1, "example-org/example-repo (main)")
 	}
 }
 
@@ -230,7 +230,7 @@ func TestSessionDetail(t *testing.T) {
 		{"s1", "gpt-5-mini", int64(500_000_000), "2026-07-25T01:00:00.000Z"},
 		{"s1", "claude", int64(1_000_000_000), "2026-07-25T02:00:00.000Z"},
 	})
-	insertSession(t, path, "s1", "Tool Overview Session", "mazrean/kessoku", "main")
+	insertSession(t, path, "s1", "Fix login bug", "example-org/example-repo", "main")
 	insertCheckpoint(t, path, "s1", 1, "Initial exploration", "looked around", "read files", "start implementing")
 	insertCheckpoint(t, path, "s1", 2, "Implementation", "wrote code", "added feature", "write tests")
 
@@ -244,7 +244,7 @@ func TestSessionDetail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("session detail: %v", err)
 	}
-	if d.Summary != "Tool Overview Session" || d.Repository != "mazrean/kessoku" || d.Branch != "main" {
+	if d.Summary != "Fix login bug" || d.Repository != "example-org/example-repo" || d.Branch != "main" {
 		t.Fatalf("metadata = %+v", d)
 	}
 	if len(d.ByModel) != 2 || d.ByModel[0].Model != "claude" || d.ByModel[0].AIU != 1.0 {
