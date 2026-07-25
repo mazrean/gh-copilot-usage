@@ -13,6 +13,7 @@ import {
 } from "chart.js";
 import type { Usage } from "../lib/api.js";
 import { formatAIU, formatBucketLabel } from "../lib/format.js";
+import { t } from "../lib/i18n.js";
 import { PALETTE } from "../lib/colors.js";
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
@@ -130,7 +131,7 @@ export class UsageChart extends LitElement {
         maintainAspectRatio: false,
         scales: {
           x: { stacked: true },
-          y: { stacked: true, title: { display: true, text: "AIU" } },
+          y: { stacked: true, title: { display: true, text: t("unitAIU") } },
         },
         plugins: {
           // Rendered via #htmlLegendPlugin instead so a large label count
@@ -138,7 +139,7 @@ export class UsageChart extends LitElement {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (ctx) => `${ctx.dataset.label}: ${formatAIU(ctx.parsed.y ?? 0)} AIU`,
+              label: (ctx) => `${ctx.dataset.label}: ${formatAIU(ctx.parsed.y ?? 0)} ${t("unitAIU")}`,
             },
           },
         },

@@ -1,6 +1,7 @@
 import { LitElement, html } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { fetchUsage, type Dimension, type Granularity, type Usage } from "../lib/api.js";
+import { getLocale, setLocale, t, type Locale } from "../lib/i18n.js";
 import type { ToggleOption } from "./usage-toggle-group.js";
 import type { SessionDetailModal } from "./session-detail-modal.js";
 import type { ModelDetailModal } from "./model-detail-modal.js";
@@ -10,15 +11,20 @@ import "./usage-chart.js";
 import "./session-detail-modal.js";
 import "./model-detail-modal.js";
 
-const DIMENSION_OPTIONS: ToggleOption[] = [
-  { value: "model", label: "モデル別" },
-  { value: "session", label: "セッション別" },
+const dimensionOptions = (): ToggleOption[] => [
+  { value: "model", label: t("dimensionModel") },
+  { value: "session", label: t("dimensionSession") },
 ];
 
-const GRANULARITY_OPTIONS: ToggleOption[] = [
-  { value: "day", label: "日次" },
-  { value: "week", label: "週次" },
-  { value: "month", label: "月次" },
+const granularityOptions = (): ToggleOption[] => [
+  { value: "day", label: t("granularityDay") },
+  { value: "week", label: t("granularityWeek") },
+  { value: "month", label: t("granularityMonth") },
+];
+
+const languageOptions = (): ToggleOption[] => [
+  { value: "ja", label: t("languageJa") },
+  { value: "en", label: t("languageEn") },
 ];
 
 @customElement("usage-dashboard")
@@ -62,18 +68,29 @@ export class UsageDashboard extends LitElement {
     this.modelModal.openModel(e.detail.model);
   }
 
+  #onLanguageChange(e: CustomEvent<{ value: string }>) {
+    setLocale(e.detail.value as Locale);
+  }
+
   render() {
     return html`
-      <div class="flex gap-3 flex-wrap mb-5">
+      <div class="flex items-start justify-between gap-3 flex-wrap mb-5">
+        <div class="flex gap-3 flex-wrap">
+          <usage-toggle-group
+            .options=${dimensionOptions()}
+            .value=${this.dimension}
+            @change=${(e: CustomEvent<{ value: string }>) => this.#onDimensionChange(e)}
+          ></usage-toggle-group>
+          <usage-toggle-group
+            .options=${granularityOptions()}
+            .value=${this.granularity}
+            @change=${(e: CustomEvent<{ value: string }>) => this.#onGranularityChange(e)}
+          ></usage-toggle-group>
+        </div>
         <usage-toggle-group
-          .options=${DIMENSION_OPTIONS}
-          .value=${this.dimension}
-          @change=${(e: CustomEvent<{ value: string }>) => this.#onDimensionChange(e)}
-        ></usage-toggle-group>
-        <usage-toggle-group
-          .options=${GRANULARITY_OPTIONS}
-          .value=${this.granularity}
-          @change=${(e: CustomEvent<{ value: string }>) => this.#onGranularityChange(e)}
+          .options=${languageOptions()}
+          .value=${getLocale()}
+          @change=${(e: CustomEvent<{ value: string }>) => this.#onLanguageChange(e)}
         ></usage-toggle-group>
       </div>
       <usage-summary-cards .usage=${this.usage}></usage-summary-cards>

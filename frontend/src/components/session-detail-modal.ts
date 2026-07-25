@@ -8,6 +8,7 @@ import {
   type SessionTurnUsage,
 } from "../lib/api.js";
 import { formatAIU, formatDurationMs, formatTimestamp, formatTokenCount } from "../lib/format.js";
+import { t as translate } from "../lib/i18n.js";
 import "./turn-usage-chart.js";
 import "./turn-trace-view.js";
 
@@ -46,12 +47,12 @@ export class SessionDetailModal extends LitElement {
     try {
       const { ok, data } = await fetchSessionDetail(sessionId);
       if (!ok) {
-        this.error = (data as ApiError).error || "取得に失敗しました";
+        this.error = (data as ApiError).error || translate("fetchFailed");
       } else {
         this.detail = data as SessionDetail;
       }
     } catch {
-      this.error = "取得に失敗しました";
+      this.error = translate("fetchFailed");
     } finally {
       this.loading = false;
     }
@@ -78,12 +79,14 @@ export class SessionDetailModal extends LitElement {
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="session-modal-title">
           <div class="modal-header">
             <h2 id="session-modal-title" class="text-[1rem] font-semibold m-0">
-              ${d ? d.summary || d.id : "セッション詳細"}
+              ${d ? d.summary || d.id : translate("sessionDetailTitle")}
             </h2>
-            <button type="button" class="modal-close" aria-label="閉じる" @click=${() => this.close()}>×</button>
+            <button type="button" class="modal-close" aria-label=${translate("close")} @click=${() => this.close()}>
+              ×
+            </button>
           </div>
           <div class="modal-body">
-            ${this.loading ? html`読み込み中……` : nothing}
+            ${this.loading ? html`${translate("loading")}` : nothing}
             ${!this.loading && this.error ? html`${this.error}` : nothing}
             ${!this.loading && d ? this.#renderDetail(d) : nothing}
           </div>
@@ -97,11 +100,11 @@ export class SessionDetailModal extends LitElement {
     const turns = d.turns ?? [];
     const metaRows: Array<[string, string, string?]> = [];
     if (d.repository) {
-      metaRows.push(["リポジトリ", d.branch ? `${d.repository} (${d.branch})` : d.repository]);
+      metaRows.push([translate("repository"), d.branch ? `${d.repository} (${d.branch})` : d.repository]);
     }
-    if (d.cwd) metaRows.push(["作業ディレクトリ", d.cwd, "font-mono"]);
-    if (d.createdAt) metaRows.push(["作成", formatTimestamp(d.createdAt)]);
-    if (d.updatedAt) metaRows.push(["更新", formatTimestamp(d.updatedAt)]);
+    if (d.cwd) metaRows.push([translate("cwd"), d.cwd, "font-mono"]);
+    if (d.createdAt) metaRows.push([translate("createdAt"), formatTimestamp(d.createdAt)]);
+    if (d.updatedAt) metaRows.push([translate("updatedAt"), formatTimestamp(d.updatedAt)]);
 
     return html`
       <dl class="m-0 mb-3 text-[0.85rem]">
@@ -114,20 +117,20 @@ export class SessionDetailModal extends LitElement {
           `,
         )}
       </dl>
-      <div class="modal-section-title">モデル別内訳</div>
+      <div class="modal-section-title">${translate("byModelBreakdown")}</div>
       <ul class="list-none m-0 p-0 text-[0.9rem]">
         ${byModel.length
           ? byModel.map(
               (m) => html`
                 <li class="flex justify-between gap-3 py-1 border-b border-border">
                   <span>${m.model}</span>
-                  <span>${formatAIU(m.aiu)} AIU</span>
+                  <span>${formatAIU(m.aiu)} ${translate("unitAIU")}</span>
                 </li>
               `,
             )
-          : html`<li>データがありません</li>`}
+          : html`<li>${translate("noData")}</li>`}
       </ul>
-      <div class="modal-section-title">ターン別内訳</div>
+      <div class="modal-section-title">${translate("byTurnBreakdown")}</div>
       ${turns.length
         ? html`
             <turn-usage-chart
@@ -136,42 +139,44 @@ export class SessionDetailModal extends LitElement {
             ></turn-usage-chart>
             ${this.#renderSelectedTurn(turns)}
           `
-        : html`<div>ターンの記録はありません</div>`}
+        : html`<div>${translate("noTurns")}</div>`}
     `;
   }
 
   #renderSelectedTurn(turns: SessionTurnUsage[]) {
     if (this.selectedTurnIndex === null) {
-      return html`<div class="text-[0.82rem] text-muted mt-2">グラフ内のターンをクリックすると詳細が表示されます</div>`;
+      return html`<div class="text-[0.82rem] text-muted mt-2">${translate("turnClickHint")}</div>`;
     }
-    const t = turns.find((turn) => turn.turnIndex === this.selectedTurnIndex);
-    if (!t) return nothing;
+    const turn = turns.find((tu) => tu.turnIndex === this.selectedTurnIndex);
+    if (!turn) return nothing;
 
     const latencyParts: string[] = [];
-    if (t.durationMs) latencyParts.push(`所要時間 ${formatDurationMs(t.durationMs)}`);
+    if (turn.durationMs) latencyParts.push(translate("durationLabel", { value: formatDurationMs(turn.durationMs) }));
 
     return html`
       <div class="turn-item mt-2">
         <div class="font-semibold text-[0.9rem]">
-          ${t.turnIndex >= 0 ? `ターン #${t.turnIndex}` : "未割当"}
-          <span class="font-normal text-muted">— ${formatAIU(t.aiu)} AIU</span>
+          ${turn.turnIndex >= 0 ? translate("turnLabel", { index: turn.turnIndex }) : translate("unassigned")}
+          <span class="font-normal text-muted">— ${formatAIU(turn.aiu)} ${translate("unitAIU")}</span>
         </div>
-        ${t.timestamp ? html`<div class="text-[0.78rem] text-muted mt-1">${formatTimestamp(t.timestamp)}</div>` : nothing}
+        ${turn.timestamp
+          ? html`<div class="text-[0.78rem] text-muted mt-1">${formatTimestamp(turn.timestamp)}</div>`
+          : nothing}
         ${latencyParts.length
-          ? html`<div class="text-[0.78rem] text-muted mt-1">${latencyParts.join(" ／ ")}</div>`
+          ? html`<div class="text-[0.78rem] text-muted mt-1">${latencyParts.join(translate("listSeparator"))}</div>`
           : nothing}
-        ${this.#renderTokenBreakdown(t.byModel)}
-        ${t.spans && t.spans.length
-          ? html`<turn-trace-view class="mt-2" .spans=${t.spans}></turn-trace-view>`
+        ${this.#renderTokenBreakdown(turn.byModel)}
+        ${turn.spans && turn.spans.length
+          ? html`<turn-trace-view class="mt-2" .spans=${turn.spans}></turn-trace-view>`
           : nothing}
-        ${t.userMessage
-          ? html`<div class="text-[0.82rem] text-muted mt-2 [white-space:pre-wrap]">${t.userMessage}</div>`
+        ${turn.userMessage
+          ? html`<div class="text-[0.82rem] text-muted mt-2 [white-space:pre-wrap]">${turn.userMessage}</div>`
           : nothing}
-        ${t.assistantResponse
+        ${turn.assistantResponse
           ? html`
               <details class="mt-2">
-                <summary class="text-[0.82rem] cursor-pointer">アシスタント応答</summary>
-                <div class="text-[0.82rem] text-muted mt-1 [white-space:pre-wrap]">${t.assistantResponse}</div>
+                <summary class="text-[0.82rem] cursor-pointer">${translate("assistantResponse")}</summary>
+                <div class="text-[0.82rem] text-muted mt-1 [white-space:pre-wrap]">${turn.assistantResponse}</div>
               </details>
             `
           : nothing}
@@ -187,7 +192,7 @@ export class SessionDetailModal extends LitElement {
       <table class="w-full text-[0.78rem] mt-2 border-collapse">
         <thead>
           <tr class="text-muted">
-            <th class="text-left font-normal">モデル</th>
+            <th class="text-left font-normal">${translate("tokenTableModel")}</th>
             <th class="text-right font-normal">input</th>
             <th class="text-right font-normal">output</th>
             <th class="text-right font-normal">cache_read</th>

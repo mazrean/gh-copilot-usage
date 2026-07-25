@@ -1,3 +1,5 @@
+import { t } from "./i18n.js";
+
 export function formatAIU(value: number): string {
   return value.toFixed(3);
 }
@@ -9,7 +11,7 @@ function toSlashDate(isoDate: string): string {
 
 export function formatDateRange(firstAt: string, lastAt: string): string {
   if (!firstAt || !lastAt) return "-";
-  return `${toSlashDate(firstAt)} 〜 ${toSlashDate(lastAt)}`;
+  return `${toSlashDate(firstAt)}${t("dateRangeSeparator")}${toSlashDate(lastAt)}`;
 }
 
 export function formatTimestamp(value: string): string {

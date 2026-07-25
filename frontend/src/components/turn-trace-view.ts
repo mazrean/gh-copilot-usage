@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { TurnEventSpan } from "../lib/api.js";
 import { formatAIU, formatDurationMs } from "../lib/format.js";
+import { t as translate } from "../lib/i18n.js";
 import { PALETTE } from "../lib/colors.js";
 
 // Minimum visible width for a span whose AIU share of the turn would
@@ -60,7 +61,7 @@ export class TurnTraceView extends LitElement {
           ${lanes.map(
             (lane) => html`
               <div class="${lane.depth ? "pl-4" : ""}">
-                <div class="text-[0.75rem] text-muted mb-1">${lane.label}（${formatAIU(lane.aiu)} AIU）</div>
+                <div class="text-[0.75rem] text-muted mb-1">${lane.label}（${formatAIU(lane.aiu)} ${translate("unitAIU")}）</div>
                 <div class="relative h-[22px] bg-[var(--toggle-track-bg)] rounded-md border border-border">
                   ${lane.items.map(
                     (p) => html`
@@ -100,9 +101,11 @@ export class TurnTraceView extends LitElement {
         style="left:${this.hoverX + 12}px;top:${this.hoverY + 12}px"
       >
         <div class="font-semibold">${span.model}</div>
-        <div>${formatAIU(span.aiu)} AIU</div>
+        <div>${formatAIU(span.aiu)} ${translate("unitAIU")}</div>
         ${span.durationMs ? html`<div class="text-muted">${formatDurationMs(span.durationMs)}</div>` : nothing}
-        ${span.initiator ? html`<div class="text-muted">initiator: ${span.initiator}</div>` : nothing}
+        ${span.initiator
+          ? html`<div class="text-muted">${translate("traceInitiator", { value: span.initiator })}</div>`
+          : nothing}
       </div>
     `;
   }
@@ -137,7 +140,7 @@ export class TurnTraceView extends LitElement {
       const items = positioned.filter((p) => (p.span.agentId || "") === key);
       return {
         key,
-        label: key || "メインエージェント",
+        label: key || translate("traceMainAgent"),
         depth: key ? 1 : 0,
         items,
         aiu: items.reduce((sum, p) => sum + p.span.aiu, 0),
