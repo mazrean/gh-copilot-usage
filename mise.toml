@@ -1,0 +1,7 @@
+[tools]
+"github:microsoft/apm" = "latest"
+gh = "latest"
+
+go = "1.26"
+"go:golang.org/x/tools/gopls" = "latest"
+goreleaser = "2"

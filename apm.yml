@@ -1,0 +1,9 @@
+name: copilot-cli-usage
+version: 0.1.0
+description: APM package for copilot-cli-usage
+
+dependencies:
+  apm:
+    - mazrean/apm-plackage/common
+    - mazrean/apm-plackage/go
+    - mazrean/apm-plackage/goreleaser
