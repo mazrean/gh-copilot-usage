@@ -22,6 +22,7 @@ import (
 	"golang.org/x/tools/go/analysis/passes/ifaceassert"
 	"golang.org/x/tools/go/analysis/passes/loopclosure"
 	"golang.org/x/tools/go/analysis/passes/lostcancel"
+	"golang.org/x/tools/go/analysis/passes/modernize"
 	"golang.org/x/tools/go/analysis/passes/nilfunc"
 	"golang.org/x/tools/go/analysis/passes/printf"
 	"golang.org/x/tools/go/analysis/passes/shift"
@@ -62,5 +63,6 @@ func main() {
 	for _, a := range stylecheck.Analyzers {
 		analyzers = append(analyzers, a.Analyzer)
 	}
+	analyzers = append(analyzers, modernize.Suite...)
 	multichecker.Main(analyzers...)
 }
