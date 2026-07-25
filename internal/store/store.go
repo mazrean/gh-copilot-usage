@@ -365,32 +365,32 @@ type SessionModelUsage struct {
 	Rows  int     `json:"rows"`
 }
 
-// SessionCheckpoint is one recorded checkpoint summary within a session.
-type SessionCheckpoint struct {
-	Number    int    `json:"number"`
-	Title     string `json:"title"`
-	Overview  string `json:"overview"`
-	WorkDone  string `json:"workDone"`
-	NextSteps string `json:"nextSteps"`
-	CreatedAt string `json:"createdAt"`
+// SessionTurnUsage is one turn's AIU contribution within a single session,
+// broken down by model. TurnIndex is -1 for usage events with no turn_index
+// (turn_index IS NULL), grouped together as "unassigned".
+type SessionTurnUsage struct {
+	TurnIndex   int                 `json:"turnIndex"`
+	AIU         float64             `json:"aiu"`
+	UserMessage string              `json:"userMessage"`
+	ByModel     []SessionModelUsage `json:"byModel"`
 }
 
 // SessionDetail is the drill-down view for a single session: its metadata,
-// per-model AIU breakdown, and checkpoint summaries.
+// per-model AIU breakdown, and per-turn AIU breakdown.
 type SessionDetail struct {
-	ID          string              `json:"id"`
-	Summary     string              `json:"summary"`
-	Repository  string              `json:"repository"`
-	Branch      string              `json:"branch"`
-	Cwd         string              `json:"cwd"`
-	CreatedAt   string              `json:"createdAt"`
-	UpdatedAt   string              `json:"updatedAt"`
-	ByModel     []SessionModelUsage `json:"byModel"`
-	Checkpoints []SessionCheckpoint `json:"checkpoints"`
+	ID         string              `json:"id"`
+	Summary    string              `json:"summary"`
+	Repository string              `json:"repository"`
+	Branch     string              `json:"branch"`
+	Cwd        string              `json:"cwd"`
+	CreatedAt  string              `json:"createdAt"`
+	UpdatedAt  string              `json:"updatedAt"`
+	ByModel    []SessionModelUsage `json:"byModel"`
+	Turns      []SessionTurnUsage  `json:"turns"`
 }
 
-// SessionDetail returns metadata, per-model AIU breakdown and checkpoint
-// summaries for one session. It returns ErrSessionNotFound if no sessions row
+// SessionDetail returns metadata, per-model AIU breakdown and per-turn AIU
+// breakdown for one session. It returns ErrSessionNotFound if no sessions row
 // matches id.
 func (s *Store) SessionDetail(ctx context.Context, id string) (*SessionDetail, error) {
 	var summary, repository, branch, cwd, createdAt, updatedAt sql.NullString
@@ -444,26 +444,84 @@ func (s *Store) SessionDetail(ctx context.Context, id string) (*SessionDetail, e
 	}
 	modelRows.Close()
 
-	cpRows, err := s.db.QueryContext(ctx, `
-		SELECT checkpoint_number, COALESCE(title, ''), COALESCE(overview, ''),
-		       COALESCE(work_done, ''), COALESCE(next_steps, ''), created_at
-		FROM checkpoints
+	turnRows, err := s.db.QueryContext(ctx, `
+		SELECT turn_index, model, SUM(total_nano_aiu), COUNT(*)
+		FROM assistant_usage_events
 		WHERE session_id = ?
-		ORDER BY checkpoint_number ASC`, id)
+		GROUP BY turn_index, model
+		ORDER BY turn_index ASC, SUM(total_nano_aiu) DESC`, id)
 	if err != nil {
 		return nil, err
 	}
-	defer cpRows.Close()
-	for cpRows.Next() {
-		var cp SessionCheckpoint
-		if err := cpRows.Scan(&cp.Number, &cp.Title, &cp.Overview, &cp.WorkDone, &cp.NextSteps, &cp.CreatedAt); err != nil {
+	var turns []SessionTurnUsage
+	var unassigned *SessionTurnUsage
+	var current *SessionTurnUsage
+	for turnRows.Next() {
+		var turnIndex sql.NullInt64
+		var model string
+		var nano sql.NullInt64
+		var rows int
+		if err := turnRows.Scan(&turnIndex, &model, &nano, &rows); err != nil {
+			turnRows.Close()
 			return nil, err
 		}
-		detail.Checkpoints = append(detail.Checkpoints, cp)
+		modelUsage := SessionModelUsage{
+			Model: model,
+			AIU:   float64(nano.Int64) / nanoPerAIU,
+			Rows:  rows,
+		}
+		if !turnIndex.Valid {
+			if unassigned == nil {
+				unassigned = &SessionTurnUsage{TurnIndex: -1}
+			}
+			unassigned.AIU += modelUsage.AIU
+			unassigned.ByModel = append(unassigned.ByModel, modelUsage)
+			continue
+		}
+		idx := int(turnIndex.Int64)
+		if current == nil || current.TurnIndex != idx {
+			turns = append(turns, SessionTurnUsage{TurnIndex: idx})
+			current = &turns[len(turns)-1]
+		}
+		current.AIU += modelUsage.AIU
+		current.ByModel = append(current.ByModel, modelUsage)
 	}
-	if err := cpRows.Err(); err != nil {
+	if err := turnRows.Err(); err != nil {
+		turnRows.Close()
 		return nil, err
 	}
+	turnRows.Close()
+
+	msgRows, err := s.db.QueryContext(ctx, `
+		SELECT turn_index, COALESCE(user_message, '')
+		FROM turns
+		WHERE session_id = ?`, id)
+	if err != nil {
+		return nil, err
+	}
+	userMessages := make(map[int]string)
+	for msgRows.Next() {
+		var turnIndex int
+		var userMessage string
+		if err := msgRows.Scan(&turnIndex, &userMessage); err != nil {
+			msgRows.Close()
+			return nil, err
+		}
+		userMessages[turnIndex] = userMessage
+	}
+	if err := msgRows.Err(); err != nil {
+		msgRows.Close()
+		return nil, err
+	}
+	msgRows.Close()
+
+	for i := range turns {
+		turns[i].UserMessage = userMessages[turns[i].TurnIndex]
+	}
+	if unassigned != nil {
+		turns = append(turns, *unassigned)
+	}
+	detail.Turns = turns
 
 	return detail, nil
 }

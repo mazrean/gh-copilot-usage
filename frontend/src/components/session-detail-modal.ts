@@ -80,7 +80,7 @@ export class SessionDetailModal extends LitElement {
 
   #renderDetail(d: SessionDetail) {
     const byModel = d.byModel ?? [];
-    const checkpoints = d.checkpoints ?? [];
+    const turns = d.turns ?? [];
     const metaRows: Array<[string, string, string?]> = [];
     if (d.repository) {
       metaRows.push(["リポジトリ", d.branch ? `${d.repository} (${d.branch})` : d.repository]);
@@ -113,31 +113,32 @@ export class SessionDetailModal extends LitElement {
             )
           : html`<li>データがありません</li>`}
       </ul>
-      <div class="modal-section-title">チェックポイント</div>
-      ${checkpoints.length
-        ? checkpoints.map(
-            (cp) => html`
-              <div class="checkpoint-item">
-                <div class="font-semibold text-[0.9rem]">#${cp.number} ${cp.title || "(無題)"}</div>
-                ${cp.overview
-                  ? html`<div class="text-[0.82rem] text-muted mt-1">
-                      <b class="text-fg font-semibold">概要:</b> ${cp.overview}
-                    </div>`
+      <div class="modal-section-title">ターン別内訳</div>
+      ${turns.length
+        ? turns.map(
+            (t) => html`
+              <details class="turn-item">
+                <summary class="font-semibold text-[0.9rem] cursor-pointer">
+                  ${t.turnIndex >= 0 ? `ターン #${t.turnIndex}` : "未割当"}
+                  <span class="font-normal text-muted">— ${formatAIU(t.aiu)} AIU</span>
+                </summary>
+                ${t.userMessage
+                  ? html`<div class="text-[0.82rem] text-muted mt-1 [white-space:pre-wrap]">${t.userMessage}</div>`
                   : nothing}
-                ${cp.workDone
-                  ? html`<div class="text-[0.82rem] text-muted mt-1">
-                      <b class="text-fg font-semibold">作業内容:</b> ${cp.workDone}
-                    </div>`
-                  : nothing}
-                ${cp.nextSteps
-                  ? html`<div class="text-[0.82rem] text-muted mt-1">
-                      <b class="text-fg font-semibold">次のステップ:</b> ${cp.nextSteps}
-                    </div>`
-                  : nothing}
-              </div>
+                <ul class="list-none m-0 p-0 mt-1 text-[0.82rem]">
+                  ${t.byModel.map(
+                    (m) => html`
+                      <li class="flex justify-between gap-3 py-0.5">
+                        <span>${m.model}</span>
+                        <span>${formatAIU(m.aiu)} AIU (${m.rows}件)</span>
+                      </li>
+                    `,
+                  )}
+                </ul>
+              </details>
             `,
           )
-        : html`<div>チェックポイントの記録はありません</div>`}
+        : html`<div>ターンの記録はありません</div>`}
     `;
   }
 }

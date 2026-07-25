@@ -50,7 +50,7 @@ export default defineConfig({
       "bg-transparent border-none text-muted text-[1.2rem] cursor-pointer leading-none px-2 py-1 rounded-md hover:bg-hover focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
     "modal-body": "p-4 overflow-y-auto",
     "modal-section-title": "text-[0.85rem] font-semibold mt-4 mb-2",
-    "checkpoint-item": "border border-border rounded-md px-3 py-2.5 mb-2",
+    "turn-item": "border border-border rounded-md px-3 py-2.5 mb-2",
     "page-title": "text-[1.25rem] font-semibold m-0 mb-4 pb-3 border-b border-border",
   },
   preflights: [
