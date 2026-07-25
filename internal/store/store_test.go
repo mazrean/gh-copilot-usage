@@ -178,6 +178,32 @@ func TestAggregateBySessionMonthly(t *testing.T) {
 	}
 }
 
+func TestAggregateByModelWeekly(t *testing.T) {
+	// 2026-07-27 is a Monday. Bucketing groups by that week's Monday date.
+	path := makeDB(t, [][4]any{
+		{"s1", "m", int64(1_000_000_000), "2026-07-27T00:00:00.000Z"}, // Monday, week start
+		{"s1", "m", int64(1_000_000_000), "2026-08-02T23:00:00.000Z"}, // Sunday, same week
+		{"s1", "m", int64(1_000_000_000), "2026-08-03T00:00:00.000Z"}, // Monday, next week
+	})
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	u, err := st.Aggregate(context.Background(), DimModel, GranWeek)
+	if err != nil {
+		t.Fatalf("aggregate: %v", err)
+	}
+	if len(u.Buckets) != 2 || u.Buckets[0] != "2026-07-27" || u.Buckets[1] != "2026-08-03" {
+		t.Fatalf("buckets = %v, want [2026-07-27 2026-08-03]", u.Buckets)
+	}
+	m := find(u, "m")
+	if m == nil || m.Values[0] != 2.0 || m.Values[1] != 1.0 {
+		t.Fatalf("m values = %+v, want [2 1]", m)
+	}
+}
+
 func TestSessionLabelFromSummary(t *testing.T) {
 	path := makeDB(t, [][4]any{
 		{"s1", "m", int64(1_000_000_000), "2026-07-25T01:00:00.000Z"},

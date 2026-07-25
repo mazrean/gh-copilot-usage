@@ -11,7 +11,7 @@ import {
   type ChartConfiguration,
 } from "chart.js";
 import type { Usage } from "../lib/api.js";
-import { formatAIU } from "../lib/format.js";
+import { formatAIU, formatBucketLabel } from "../lib/format.js";
 import { PALETTE } from "../lib/colors.js";
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
@@ -70,7 +70,8 @@ export class UsageChart extends LitElement {
       data: s.values,
       backgroundColor: PALETTE[i % PALETTE.length],
     }));
-    return { labels: usage.buckets, datasets };
+    const labels = usage.buckets.map((b) => formatBucketLabel(b, usage.granularity));
+    return { labels, datasets };
   }
 
   #buildConfig(): ChartConfiguration<"bar"> {
