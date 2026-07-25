@@ -8,15 +8,22 @@ This file is the single source of truth for agent instructions in this repositor
 
 ## Commands
 
-The frontend (`internal/server/web`) is generated — `go build`/`go vet`/`go test`/`go tool lint` all require both the templ-generated Go code and the built frontend assets to exist first:
+The frontend (`internal/server/web`) is generated — `go build`/`go vet`/`go test`/`go tool lint` all require both the templ-generated Go code and the built frontend assets to exist first. `mise.toml` defines tasks that wire this up (`mise tasks` to list them); CI and `.goreleaser.yaml`'s `before.hooks` use the same tasks, so this is the canonical way to reproduce a CI run locally:
+
+```bash
+mise run lint    # build:frontend + generate, then go tool lint ./...
+mise run test    # build:frontend + generate, then go test ./...
+mise run build   # build:frontend and build:go (go build ./...) in dependency order
+mise run build:frontend   # just the pnpm/Vite build -> internal/server/web
+mise run generate         # just `go tool templ generate`
+```
+
+Equivalent raw commands, useful for single-test runs or when iterating without mise:
 
 ```bash
 pnpm --dir frontend install     # install frontend deps (first time / after package.json changes)
 pnpm --dir frontend build       # bundles Lit + UnoCSS -> internal/server/web (go:embed target)
 go tool templ generate          # internal/server/templates/*.templ -> *_templ.go
-```
-
-```bash
 go build ./...                  # build everything
 go vet ./...                    # standard vet
 go tool lint ./...              # project linter: vet's default analyzers + staticcheck + stylecheck bundled (see tools/lint)

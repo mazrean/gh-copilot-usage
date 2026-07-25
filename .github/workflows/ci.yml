@@ -17,17 +17,8 @@ jobs:
 
       - uses: jdx/mise-action@v4
 
-      - name: pnpm install
-        run: pnpm --dir frontend install --frozen-lockfile
-
-      - name: pnpm build
-        run: pnpm --dir frontend build
-
-      - name: go tool templ generate
-        run: go tool templ generate
-
-      - name: go tool lint
-        run: go tool lint ./...
+      - name: mise run lint
+        run: mise run lint
 
   test:
     runs-on: ubuntu-latest
@@ -36,17 +27,8 @@ jobs:
 
       - uses: jdx/mise-action@v4
 
-      - name: pnpm install
-        run: pnpm --dir frontend install --frozen-lockfile
-
-      - name: pnpm build
-        run: pnpm --dir frontend build
-
-      - name: go tool templ generate
-        run: go tool templ generate
-
-      - name: go test
-        run: go test -race ./...
+      - name: mise run test
+        run: mise run test
 
   build:
     runs-on: ubuntu-latest
@@ -55,17 +37,8 @@ jobs:
 
       - uses: jdx/mise-action@v4
 
-      - name: pnpm install
-        run: pnpm --dir frontend install --frozen-lockfile
-
-      - name: pnpm build
-        run: pnpm --dir frontend build
-
-      - name: go tool templ generate
-        run: go tool templ generate
-
-      - name: go build
-        run: go build ./...
+      - name: mise run build
+        run: mise run build
 
       - name: goreleaser check
         run: goreleaser check
