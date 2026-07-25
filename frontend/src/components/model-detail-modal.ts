@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { fetchModelDetail, type ApiError, type ModelDetail } from "../lib/api.js";
 import { formatAIU } from "../lib/format.js";
-import "./breakdown-bar-chart.js";
+import "./breakdown-pie-chart.js";
 
 const CATEGORY_LABELS: Record<string, string> = {
   input: "入力",
@@ -100,9 +100,9 @@ export class ModelDetailModal extends LitElement {
         ? html`<div>このデータには入力/出力などの内訳情報がありません</div>`
         : byCategory.length
           ? html`
-              <breakdown-bar-chart
+              <breakdown-pie-chart
                 .items=${byCategory.map((c) => ({ label: CATEGORY_LABELS[c.category] ?? c.category, value: c.aiu }))}
-              ></breakdown-bar-chart>
+              ></breakdown-pie-chart>
             `
           : html`<div>データがありません</div>`}
     `;
