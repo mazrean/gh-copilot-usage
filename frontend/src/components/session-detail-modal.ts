@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { fetchSessionDetail, type ApiError, type SessionDetail } from "../lib/api.js";
+import { fetchSessionDetail, type ApiError, type SessionDetail, type SessionTurnUsage } from "../lib/api.js";
 import { formatAIU, formatTimestamp } from "../lib/format.js";
 import "./turn-usage-chart.js";
 
@@ -10,6 +10,7 @@ export class SessionDetailModal extends LitElement {
   @state() loading = false;
   @state() error = "";
   @state() detail: SessionDetail | null = null;
+  @state() selectedTurnIndex: number | null = null;
 
   createRenderRoot() {
     return this;
@@ -34,6 +35,7 @@ export class SessionDetailModal extends LitElement {
     this.loading = true;
     this.error = "";
     this.detail = null;
+    this.selectedTurnIndex = null;
     try {
       const { ok, data } = await fetchSessionDetail(sessionId);
       if (!ok) {
@@ -54,6 +56,10 @@ export class SessionDetailModal extends LitElement {
 
   #onBackdropClick(e: MouseEvent) {
     if (e.target === e.currentTarget) this.close();
+  }
+
+  #onTurnClick(e: CustomEvent<{ turnIndex: number }>) {
+    this.selectedTurnIndex = e.detail.turnIndex;
   }
 
   render() {
@@ -117,22 +123,33 @@ export class SessionDetailModal extends LitElement {
       <div class="modal-section-title">ターン別内訳</div>
       ${turns.length
         ? html`
-            <turn-usage-chart .turns=${turns}></turn-usage-chart>
-            ${turns.map(
-              (t) => html`
-                <details class="turn-item">
-                  <summary class="font-semibold text-[0.9rem] cursor-pointer">
-                    ${t.turnIndex >= 0 ? `ターン #${t.turnIndex}` : "未割当"}
-                    <span class="font-normal text-muted">— ${formatAIU(t.aiu)} AIU</span>
-                  </summary>
-                  ${t.userMessage
-                    ? html`<div class="text-[0.82rem] text-muted mt-1 [white-space:pre-wrap]">${t.userMessage}</div>`
-                    : nothing}
-                </details>
-              `,
-            )}
+            <turn-usage-chart
+              .turns=${turns}
+              @turn-click=${(e: CustomEvent<{ turnIndex: number }>) => this.#onTurnClick(e)}
+            ></turn-usage-chart>
+            ${this.#renderSelectedTurn(turns)}
           `
         : html`<div>ターンの記録はありません</div>`}
+    `;
+  }
+
+  #renderSelectedTurn(turns: SessionTurnUsage[]) {
+    if (this.selectedTurnIndex === null) {
+      return html`<div class="text-[0.82rem] text-muted mt-2">グラフ内のターンをクリックすると詳細が表示されます</div>`;
+    }
+    const t = turns.find((turn) => turn.turnIndex === this.selectedTurnIndex);
+    if (!t) return nothing;
+
+    return html`
+      <div class="turn-item mt-2">
+        <div class="font-semibold text-[0.9rem]">
+          ${t.turnIndex >= 0 ? `ターン #${t.turnIndex}` : "未割当"}
+          <span class="font-normal text-muted">— ${formatAIU(t.aiu)} AIU</span>
+        </div>
+        ${t.userMessage
+          ? html`<div class="text-[0.82rem] text-muted mt-1 [white-space:pre-wrap]">${t.userMessage}</div>`
+          : nothing}
+      </div>
     `;
   }
 }
