@@ -1,3 +1,8 @@
 # APM dependencies
 apm_modules/
 /.claude
+
+# Go build artifacts
+/gh-copilot-usage
+/lint
+dist/
