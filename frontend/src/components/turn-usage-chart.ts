@@ -11,7 +11,7 @@ import {
   type ChartConfiguration,
 } from "chart.js";
 import type { SessionTurnUsage } from "../lib/api.js";
-import { formatAIU } from "../lib/format.js";
+import { formatAIU, formatDurationMs } from "../lib/format.js";
 import { PALETTE } from "../lib/colors.js";
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
@@ -82,6 +82,14 @@ export class TurnUsageChart extends LitElement {
           tooltip: {
             callbacks: {
               label: (ctx) => `${ctx.dataset.label}: ${formatAIU(ctx.parsed.y ?? 0)} AIU`,
+              footer: (items) => {
+                const turn = this.turns[items[0]?.dataIndex ?? -1];
+                if (!turn) return "";
+                const parts: string[] = [];
+                if (turn.durationMs) parts.push(`所要時間: ${formatDurationMs(turn.durationMs)}`);
+                if (turn.finishReason) parts.push(`終了理由: ${turn.finishReason}`);
+                return parts.join("\n");
+              },
             },
           },
         },

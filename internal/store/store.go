@@ -87,9 +87,11 @@ type Usage struct {
 
 // Store reads AIC usage from a Copilot session-store SQLite DB.
 type Store struct {
-	db                *sql.DB
-	cleanup           func()
-	hasTokenBreakdown bool
+	db                    *sql.DB
+	cleanup               func()
+	hasTokenBreakdown     bool
+	hasEventDetailColumns bool
+	hasTurnContentColumns bool
 }
 
 // DefaultDBPath returns ~/.copilot/session-store.db.
@@ -118,12 +120,12 @@ func Open(path string) (*Store, error) {
 	db, err := sql.Open("sqlite", dsn)
 	if err == nil {
 		if err = probe(db); err == nil {
-			hasBreakdown, herr := hasColumn(db, "assistant_usage_events", "token_details_json")
-			if herr != nil {
+			st, serr := newStore(db, nil)
+			if serr != nil {
 				_ = db.Close()
-				return nil, herr
+				return nil, serr
 			}
-			return &Store{db: db, hasTokenBreakdown: hasBreakdown}, nil
+			return st, nil
 		}
 		_ = db.Close()
 	}
@@ -148,13 +150,42 @@ func Open(path string) (*Store, error) {
 		os.RemoveAll(tmpDir)
 		return nil, err
 	}
-	hasBreakdown, herr := hasColumn(db2, "assistant_usage_events", "token_details_json")
-	if herr != nil {
+	st, serr := newStore(db2, func() { os.RemoveAll(tmpDir) })
+	if serr != nil {
 		_ = db2.Close()
 		os.RemoveAll(tmpDir)
-		return nil, herr
+		return nil, serr
 	}
-	return &Store{db: db2, cleanup: func() { os.RemoveAll(tmpDir) }, hasTokenBreakdown: hasBreakdown}, nil
+	return st, nil
+}
+
+// newStore builds a Store from an already-opened, already-probed db,
+// detecting which optional schema columns are present.
+func newStore(db *sql.DB, cleanup func()) (*Store, error) {
+	hasTokenBreakdown, err := hasColumn(db, "assistant_usage_events", "token_details_json")
+	if err != nil {
+		return nil, err
+	}
+	// duration_ms is the representative column for the batch of per-event
+	// detail columns (token counts, latency, finish_reason, initiator,
+	// reasoning_effort) added together in the same session-store.db migration.
+	hasEventDetailColumns, err := hasColumn(db, "assistant_usage_events", "duration_ms")
+	if err != nil {
+		return nil, err
+	}
+	// assistant_response is the representative column for the turns-table
+	// additions (assistant_response, timestamp).
+	hasTurnContentColumns, err := hasColumn(db, "turns", "assistant_response")
+	if err != nil {
+		return nil, err
+	}
+	return &Store{
+		db:                    db,
+		cleanup:               cleanup,
+		hasTokenBreakdown:     hasTokenBreakdown,
+		hasEventDetailColumns: hasEventDetailColumns,
+		hasTurnContentColumns: hasTurnContentColumns,
+	}, nil
 }
 
 // probe verifies the expected table exists.
@@ -395,21 +426,44 @@ func sessionLabel(summary, repository, branch sql.NullString) string {
 	return ""
 }
 
-// SessionModelUsage is one model's AIU contribution within a single session.
+// TurnTokenUsage is a raw token-count breakdown (not AIU) for one model
+// within one turn, available when the session-store.db exposes the
+// assistant_usage_events per-event detail columns.
+type TurnTokenUsage struct {
+	InputTokens      int64 `json:"inputTokens"`
+	OutputTokens     int64 `json:"outputTokens"`
+	CacheReadTokens  int64 `json:"cacheReadTokens"`
+	CacheWriteTokens int64 `json:"cacheWriteTokens"`
+	ReasoningTokens  int64 `json:"reasoningTokens"`
+}
+
+// SessionModelUsage is one model's AIU contribution within a single session
+// (or, within SessionTurnUsage.ByModel, within a single turn). Tokens is nil
+// unless the caller populated it from per-event detail columns.
 type SessionModelUsage struct {
-	Model string  `json:"model"`
-	AIU   float64 `json:"aiu"`
-	Rows  int     `json:"rows"`
+	Model  string          `json:"model"`
+	AIU    float64         `json:"aiu"`
+	Rows   int             `json:"rows"`
+	Tokens *TurnTokenUsage `json:"tokens,omitempty"`
 }
 
 // SessionTurnUsage is one turn's AIU contribution within a single session,
 // broken down by model. TurnIndex is -1 for usage events with no turn_index
 // (turn_index IS NULL), grouped together as "unassigned".
+//
+// AssistantResponse, Timestamp, DurationMs, TimeToFirstTokenMs and
+// FinishReason are only populated when the underlying session-store.db
+// exposes the corresponding columns (older schemas leave them zero/empty).
 type SessionTurnUsage struct {
-	TurnIndex   int                 `json:"turnIndex"`
-	AIU         float64             `json:"aiu"`
-	UserMessage string              `json:"userMessage"`
-	ByModel     []SessionModelUsage `json:"byModel"`
+	TurnIndex          int                 `json:"turnIndex"`
+	AIU                float64             `json:"aiu"`
+	UserMessage        string              `json:"userMessage"`
+	AssistantResponse  string              `json:"assistantResponse,omitempty"`
+	Timestamp          string              `json:"timestamp,omitempty"`
+	DurationMs         int64               `json:"durationMs,omitempty"`
+	TimeToFirstTokenMs float64             `json:"timeToFirstTokenMs,omitempty"`
+	FinishReason       string              `json:"finishReason,omitempty"`
+	ByModel            []SessionModelUsage `json:"byModel"`
 }
 
 // SessionDetail is the drill-down view for a single session: its metadata,
@@ -481,12 +535,23 @@ func (s *Store) SessionDetail(ctx context.Context, id string) (*SessionDetail, e
 	}
 	modelRows.Close()
 
-	turnRows, err := s.db.QueryContext(ctx, `
+	turnModelQuery := `
 		SELECT turn_index, model, SUM(total_nano_aiu), COUNT(*)
 		FROM assistant_usage_events
 		WHERE session_id = ?
 		GROUP BY turn_index, model
-		ORDER BY turn_index ASC, SUM(total_nano_aiu) DESC`, id)
+		ORDER BY turn_index ASC, SUM(total_nano_aiu) DESC`
+	if s.hasEventDetailColumns {
+		turnModelQuery = `
+			SELECT turn_index, model, SUM(total_nano_aiu), COUNT(*),
+			       SUM(input_tokens), SUM(output_tokens), SUM(cache_read_tokens),
+			       SUM(cache_write_tokens), SUM(reasoning_tokens)
+			FROM assistant_usage_events
+			WHERE session_id = ?
+			GROUP BY turn_index, model
+			ORDER BY turn_index ASC, SUM(total_nano_aiu) DESC`
+	}
+	turnRows, err := s.db.QueryContext(ctx, turnModelQuery, id)
 	if err != nil {
 		return nil, err
 	}
@@ -498,15 +563,28 @@ func (s *Store) SessionDetail(ctx context.Context, id string) (*SessionDetail, e
 		var model string
 		var nano sql.NullInt64
 		var rows int
-		if err := turnRows.Scan(&turnIndex, &model, &nano, &rows); err != nil {
+		var modelUsage SessionModelUsage
+		if s.hasEventDetailColumns {
+			var input, output, cacheRead, cacheWrite, reasoning sql.NullInt64
+			if err := turnRows.Scan(&turnIndex, &model, &nano, &rows,
+				&input, &output, &cacheRead, &cacheWrite, &reasoning); err != nil {
+				turnRows.Close()
+				return nil, err
+			}
+			modelUsage.Tokens = &TurnTokenUsage{
+				InputTokens:      input.Int64,
+				OutputTokens:     output.Int64,
+				CacheReadTokens:  cacheRead.Int64,
+				CacheWriteTokens: cacheWrite.Int64,
+				ReasoningTokens:  reasoning.Int64,
+			}
+		} else if err := turnRows.Scan(&turnIndex, &model, &nano, &rows); err != nil {
 			turnRows.Close()
 			return nil, err
 		}
-		modelUsage := SessionModelUsage{
-			Model: model,
-			AIU:   float64(nano.Int64) / nanoPerAIU,
-			Rows:  rows,
-		}
+		modelUsage.Model = model
+		modelUsage.AIU = float64(nano.Int64) / nanoPerAIU
+		modelUsage.Rows = rows
 		if !turnIndex.Valid {
 			if unassigned == nil {
 				unassigned = &SessionTurnUsage{TurnIndex: -1}
@@ -529,22 +607,45 @@ func (s *Store) SessionDetail(ctx context.Context, id string) (*SessionDetail, e
 	}
 	turnRows.Close()
 
-	msgRows, err := s.db.QueryContext(ctx, `
+	if s.hasEventDetailColumns {
+		if err := s.fillTurnMeta(ctx, id, turns); err != nil {
+			return nil, err
+		}
+	}
+
+	msgQuery := `
 		SELECT turn_index, COALESCE(user_message, '')
 		FROM turns
-		WHERE session_id = ?`, id)
+		WHERE session_id = ?`
+	if s.hasTurnContentColumns {
+		msgQuery = `
+			SELECT turn_index, COALESCE(user_message, ''), COALESCE(assistant_response, ''), COALESCE(timestamp, '')
+			FROM turns
+			WHERE session_id = ?`
+	}
+	msgRows, err := s.db.QueryContext(ctx, msgQuery, id)
 	if err != nil {
 		return nil, err
 	}
-	userMessages := make(map[int]string)
+	type turnContent struct {
+		userMessage       string
+		assistantResponse string
+		timestamp         string
+	}
+	turnContents := make(map[int]turnContent)
 	for msgRows.Next() {
 		var turnIndex int
-		var userMessage string
-		if err := msgRows.Scan(&turnIndex, &userMessage); err != nil {
+		var c turnContent
+		if s.hasTurnContentColumns {
+			if err := msgRows.Scan(&turnIndex, &c.userMessage, &c.assistantResponse, &c.timestamp); err != nil {
+				msgRows.Close()
+				return nil, err
+			}
+		} else if err := msgRows.Scan(&turnIndex, &c.userMessage); err != nil {
 			msgRows.Close()
 			return nil, err
 		}
-		userMessages[turnIndex] = userMessage
+		turnContents[turnIndex] = c
 	}
 	if err := msgRows.Err(); err != nil {
 		msgRows.Close()
@@ -553,7 +654,10 @@ func (s *Store) SessionDetail(ctx context.Context, id string) (*SessionDetail, e
 	msgRows.Close()
 
 	for i := range turns {
-		turns[i].UserMessage = userMessages[turns[i].TurnIndex]
+		c := turnContents[turns[i].TurnIndex]
+		turns[i].UserMessage = c.userMessage
+		turns[i].AssistantResponse = c.assistantResponse
+		turns[i].Timestamp = c.timestamp
 	}
 	if unassigned != nil {
 		turns = append(turns, *unassigned)
@@ -561,6 +665,63 @@ func (s *Store) SessionDetail(ctx context.Context, id string) (*SessionDetail, e
 	detail.Turns = turns
 
 	return detail, nil
+}
+
+// fillTurnMeta populates DurationMs, TimeToFirstTokenMs and FinishReason on
+// each turn in turns (in place) from assistant_usage_events, aggregating
+// across all models/events within each turn. The unassigned bucket
+// (TurnIndex -1) is not covered, since it has no single turn_index to
+// aggregate by.
+func (s *Store) fillTurnMeta(ctx context.Context, sessionID string, turns []SessionTurnUsage) error {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT turn_index,
+		       SUM(duration_ms),
+		       AVG(time_to_first_token_ms),
+		       (SELECT finish_reason FROM assistant_usage_events e2
+		        WHERE e2.session_id = e.session_id AND e2.turn_index = e.turn_index
+		        ORDER BY e2.id DESC LIMIT 1)
+		FROM assistant_usage_events e
+		WHERE session_id = ? AND turn_index IS NOT NULL
+		GROUP BY turn_index`, sessionID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type meta struct {
+		durationMs   int64
+		ttft         float64
+		finishReason string
+	}
+	byTurn := make(map[int]meta)
+	for rows.Next() {
+		var turnIndex int
+		var duration sql.NullInt64
+		var ttft sql.NullFloat64
+		var finishReason sql.NullString
+		if err := rows.Scan(&turnIndex, &duration, &ttft, &finishReason); err != nil {
+			return err
+		}
+		byTurn[turnIndex] = meta{
+			durationMs:   duration.Int64,
+			ttft:         ttft.Float64,
+			finishReason: finishReason.String,
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for i := range turns {
+		m, ok := byTurn[turns[i].TurnIndex]
+		if !ok {
+			continue
+		}
+		turns[i].DurationMs = m.durationMs
+		turns[i].TimeToFirstTokenMs = m.ttft
+		turns[i].FinishReason = m.finishReason
+	}
+	return nil
 }
 
 // categoryOrder fixes the display order of known token-cost categories so the

@@ -1,7 +1,13 @@
 import { LitElement, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { fetchSessionDetail, type ApiError, type SessionDetail, type SessionTurnUsage } from "../lib/api.js";
-import { formatAIU, formatTimestamp } from "../lib/format.js";
+import {
+  fetchSessionDetail,
+  type ApiError,
+  type SessionDetail,
+  type SessionModelUsage,
+  type SessionTurnUsage,
+} from "../lib/api.js";
+import { formatAIU, formatDurationMs, formatTimestamp, formatTokenCount } from "../lib/format.js";
 import "./turn-usage-chart.js";
 
 @customElement("session-detail-modal")
@@ -140,16 +146,69 @@ export class SessionDetailModal extends LitElement {
     const t = turns.find((turn) => turn.turnIndex === this.selectedTurnIndex);
     if (!t) return nothing;
 
+    const latencyParts: string[] = [];
+    if (t.durationMs) latencyParts.push(`所要時間 ${formatDurationMs(t.durationMs)}`);
+    if (t.timeToFirstTokenMs) latencyParts.push(`初回応答 ${formatDurationMs(t.timeToFirstTokenMs)}`);
+    if (t.finishReason) latencyParts.push(`終了理由 ${t.finishReason}`);
+
     return html`
       <div class="turn-item mt-2">
         <div class="font-semibold text-[0.9rem]">
           ${t.turnIndex >= 0 ? `ターン #${t.turnIndex}` : "未割当"}
           <span class="font-normal text-muted">— ${formatAIU(t.aiu)} AIU</span>
         </div>
+        ${t.timestamp ? html`<div class="text-[0.78rem] text-muted mt-1">${formatTimestamp(t.timestamp)}</div>` : nothing}
+        ${latencyParts.length
+          ? html`<div class="text-[0.78rem] text-muted mt-1">${latencyParts.join(" ／ ")}</div>`
+          : nothing}
+        ${this.#renderTokenBreakdown(t.byModel)}
         ${t.userMessage
-          ? html`<div class="text-[0.82rem] text-muted mt-1 [white-space:pre-wrap]">${t.userMessage}</div>`
+          ? html`<div class="text-[0.82rem] text-muted mt-2 [white-space:pre-wrap]">${t.userMessage}</div>`
+          : nothing}
+        ${t.assistantResponse
+          ? html`
+              <details class="mt-2">
+                <summary class="text-[0.82rem] cursor-pointer">アシスタント応答</summary>
+                <div class="text-[0.82rem] text-muted mt-1 [white-space:pre-wrap]">${t.assistantResponse}</div>
+              </details>
+            `
           : nothing}
       </div>
+    `;
+  }
+
+  #renderTokenBreakdown(byModel: SessionModelUsage[]) {
+    const withTokens = byModel.filter((m) => m.tokens);
+    if (!withTokens.length) return nothing;
+
+    return html`
+      <table class="w-full text-[0.78rem] mt-2 border-collapse">
+        <thead>
+          <tr class="text-muted">
+            <th class="text-left font-normal">モデル</th>
+            <th class="text-right font-normal">input</th>
+            <th class="text-right font-normal">output</th>
+            <th class="text-right font-normal">cache_read</th>
+            <th class="text-right font-normal">cache_write</th>
+            <th class="text-right font-normal">reasoning</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${withTokens.map((m) => {
+            const tok = m.tokens!;
+            return html`
+              <tr class="border-t border-border">
+                <td class="py-1">${m.model}</td>
+                <td class="text-right">${formatTokenCount(tok.inputTokens)}</td>
+                <td class="text-right">${formatTokenCount(tok.outputTokens)}</td>
+                <td class="text-right">${formatTokenCount(tok.cacheReadTokens)}</td>
+                <td class="text-right">${formatTokenCount(tok.cacheWriteTokens)}</td>
+                <td class="text-right">${formatTokenCount(tok.reasoningTokens)}</td>
+              </tr>
+            `;
+          })}
+        </tbody>
+      </table>
     `;
   }
 }
