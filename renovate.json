@@ -7,13 +7,6 @@
   "gomod": {
     "postUpdateOptions": ["gomodTidy"]
   },
-  "allowedCommands": [
-    "^go mod tidy -e$",
-    "^go tool templ generate$",
-    "^pnpm --dir frontend install --frozen-lockfile$",
-    "^pnpm --dir frontend build$",
-    "^go mod tidy$"
-  ],
   "packageRules": [
     {
       "matchManagers": ["gomod"],
