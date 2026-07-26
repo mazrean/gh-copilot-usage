@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -119,7 +120,7 @@ func TestAggregateByModelDaily(t *testing.T) {
 	}
 	defer st.Close()
 
-	u, err := st.Aggregate(context.Background(), DimModel, GranDay)
+	u, err := st.Aggregate(context.Background(), DimModel, GranDay, "", "")
 	if err != nil {
 		t.Fatalf("aggregate: %v", err)
 	}
@@ -161,7 +162,7 @@ func TestAggregateBySessionMonthly(t *testing.T) {
 	}
 	defer st.Close()
 
-	u, err := st.Aggregate(context.Background(), DimSession, GranMonth)
+	u, err := st.Aggregate(context.Background(), DimSession, GranMonth, "", "")
 	if err != nil {
 		t.Fatalf("aggregate: %v", err)
 	}
@@ -191,7 +192,7 @@ func TestAggregateByModelWeekly(t *testing.T) {
 	}
 	defer st.Close()
 
-	u, err := st.Aggregate(context.Background(), DimModel, GranWeek)
+	u, err := st.Aggregate(context.Background(), DimModel, GranWeek, "", "")
 	if err != nil {
 		t.Fatalf("aggregate: %v", err)
 	}
@@ -201,6 +202,88 @@ func TestAggregateByModelWeekly(t *testing.T) {
 	m := find(u, "m")
 	if m == nil || m.Values[0] != 2.0 || m.Values[1] != 1.0 {
 		t.Fatalf("m values = %+v, want [2 1]", m)
+	}
+}
+
+func TestAggregateWithDateRange(t *testing.T) {
+	path := makeDB(t, [][4]any{
+		{"s1", "m", int64(1_000_000_000), "2026-07-24T23:00:00.000Z"}, // just before the range
+		{"s1", "m", int64(1_000_000_000), "2026-07-25T00:00:00.000Z"}, // range start (inclusive)
+		{"s1", "m", int64(1_000_000_000), "2026-07-26T23:59:59.000Z"}, // range end (inclusive, whole day)
+		{"s1", "m", int64(1_000_000_000), "2026-07-27T00:00:00.000Z"}, // just after the range
+	})
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	u, err := st.Aggregate(context.Background(), DimModel, GranDay, "2026-07-25", "2026-07-26")
+	if err != nil {
+		t.Fatalf("aggregate: %v", err)
+	}
+	if len(u.Buckets) != 2 || u.Buckets[0] != "2026-07-25" || u.Buckets[1] != "2026-07-26" {
+		t.Fatalf("buckets = %v, want [2026-07-25 2026-07-26]", u.Buckets)
+	}
+	m := find(u, "m")
+	if m == nil || m.Values[0] != 1.0 || m.Values[1] != 1.0 {
+		t.Fatalf("m values = %+v, want [1 1]", m)
+	}
+	// meta() (TotalAIU/Rows/FirstAt/LastAt) reflects the whole table, not the
+	// filtered window, so summary cards stay stable while paging the chart.
+	if u.Rows != 4 {
+		t.Fatalf("rows = %d, want 4 (unfiltered)", u.Rows)
+	}
+}
+
+func TestAggregateRangeTooLongIsRejected(t *testing.T) {
+	path := makeDB(t, [][4]any{
+		{"s1", "m", int64(1_000_000_000), "2026-01-01T00:00:00.000Z"},
+	})
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	max := MaxRangeBuckets[GranDay]
+	from := "2026-01-01"
+	to := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, max).Format("2006-01-02")
+
+	if _, err := st.Aggregate(context.Background(), DimModel, GranDay, from, to); !errors.Is(err, ErrRangeTooLong) {
+		t.Fatalf("aggregate err = %v, want ErrRangeTooLong", err)
+	}
+
+	// One day shorter fits exactly within the limit.
+	okTo := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, max-1).Format("2006-01-02")
+	if _, err := st.Aggregate(context.Background(), DimModel, GranDay, from, okTo); err != nil {
+		t.Fatalf("aggregate at limit: %v", err)
+	}
+}
+
+func TestAggregateRangeTooLongIsRejectedForMonthGranularity(t *testing.T) {
+	// Regression guard for the calendar-month bucket count: a from/to pair
+	// spanning day-of-month 31 must count whole calendar months touched
+	// (matching the frontend's independent bucketSpan calculation in
+	// frontend/src/lib/period.ts), not a day-of-month-anchored step count
+	// that a naive month-stepping implementation could get wrong.
+	path := makeDB(t, [][4]any{
+		{"s1", "m", int64(1_000_000_000), "2023-01-31T00:00:00.000Z"},
+	})
+	st, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer st.Close()
+
+	// 2023-01 through 2025-12 inclusive is exactly MaxRangeBuckets[GranMonth]
+	// (36) calendar months.
+	if _, err := st.Aggregate(context.Background(), DimModel, GranMonth, "2023-01-31", "2025-12-31"); err != nil {
+		t.Fatalf("aggregate at limit: %v", err)
+	}
+	// One day into 2026-01 pulls in a 37th month - over the limit.
+	if _, err := st.Aggregate(context.Background(), DimModel, GranMonth, "2023-01-31", "2026-01-01"); !errors.Is(err, ErrRangeTooLong) {
+		t.Fatalf("aggregate err = %v, want ErrRangeTooLong", err)
 	}
 }
 
@@ -216,7 +299,7 @@ func TestSessionLabelFromSummary(t *testing.T) {
 	}
 	defer st.Close()
 
-	u, err := st.Aggregate(context.Background(), DimSession, GranDay)
+	u, err := st.Aggregate(context.Background(), DimSession, GranDay, "", "")
 	if err != nil {
 		t.Fatalf("aggregate: %v", err)
 	}
@@ -238,7 +321,7 @@ func TestSessionLabelFallsBackToRepository(t *testing.T) {
 	}
 	defer st.Close()
 
-	u, err := st.Aggregate(context.Background(), DimSession, GranDay)
+	u, err := st.Aggregate(context.Background(), DimSession, GranDay, "", "")
 	if err != nil {
 		t.Fatalf("aggregate: %v", err)
 	}
@@ -259,7 +342,7 @@ func TestSessionLabelFallsBackToKeyWhenNoMetadata(t *testing.T) {
 	}
 	defer st.Close()
 
-	u, err := st.Aggregate(context.Background(), DimSession, GranDay)
+	u, err := st.Aggregate(context.Background(), DimSession, GranDay, "", "")
 	if err != nil {
 		t.Fatalf("aggregate: %v", err)
 	}
@@ -752,7 +835,7 @@ func TestUnknownSeriesLabel(t *testing.T) {
 	}
 	defer st.Close()
 
-	u, err := st.Aggregate(context.Background(), DimModel, GranDay)
+	u, err := st.Aggregate(context.Background(), DimModel, GranDay, "", "")
 	if err != nil {
 		t.Fatalf("aggregate: %v", err)
 	}

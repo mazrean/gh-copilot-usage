@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -266,8 +267,65 @@ func (s *Store) Close() error {
 	return err
 }
 
+// MaxRangeBuckets caps the number of buckets a caller may request via
+// Aggregate's from/to range, keyed by granularity. It bounds both the
+// chart's rendered width and the cost of the underlying query. Enforced by
+// Aggregate itself (ErrRangeTooLong), independent of the frontend's own
+// date-picker clamping, whenever both from and to are given - the web UI
+// always sends them as a pair (see frontend/src/lib/period.ts), so this is
+// the only path the chart actually exercises. A one-sided from-only/to-only
+// range (only reachable via a hand-crafted request, e.g. `--json --from`)
+// is intentionally left open-ended rather than bucket-capped.
+var MaxRangeBuckets = map[Granularity]int{
+	GranDay:   90,
+	GranWeek:  52,
+	GranMonth: 36,
+}
+
+// ErrRangeTooLong indicates a from/to range spans more buckets than
+// MaxRangeBuckets allows for the requested granularity.
+var ErrRangeTooLong = errors.New("requested date range is too long for this granularity")
+
+// checkRange validates that a from/to window, when both bounds are set,
+// does not span more buckets than MaxRangeBuckets allows for gran. from/to
+// are expected in "YYYY-MM-DD" form.
+func checkRange(gran Granularity, from, to string) error {
+	if from == "" || to == "" {
+		return nil
+	}
+	f, err := time.Parse("2006-01-02", from)
+	if err != nil {
+		return fmt.Errorf("invalid from date %q: %w", from, err)
+	}
+	t, err := time.Parse("2006-01-02", to)
+	if err != nil {
+		return fmt.Errorf("invalid to date %q: %w", to, err)
+	}
+	if t.Before(f) {
+		return fmt.Errorf("to date %q is before from date %q", to, from)
+	}
+
+	var buckets int
+	switch gran {
+	case GranMonth:
+		buckets = (t.Year()-f.Year())*12 + int(t.Month()) - int(f.Month()) + 1
+	case GranWeek:
+		buckets = int(t.Sub(f).Hours()/24)/7 + 1
+	default: // GranDay
+		buckets = int(t.Sub(f).Hours()/24) + 1
+	}
+	if max, ok := MaxRangeBuckets[gran]; ok && buckets > max {
+		return fmt.Errorf("%w: %d buckets requested, max %d for %q granularity", ErrRangeTooLong, buckets, max, gran)
+	}
+	return nil
+}
+
 // Aggregate returns AIC usage bucketed by time and stacked by dimension.
-func (s *Store) Aggregate(ctx context.Context, dim Dimension, gran Granularity) (*Usage, error) {
+// from and to are optional "YYYY-MM-DD" dates (empty = unbounded) that limit
+// the aggregated window to created_at values on or after from and on or
+// before to (both inclusive). When both are set, the range is rejected with
+// ErrRangeTooLong if it would exceed MaxRangeBuckets[gran].
+func (s *Store) Aggregate(ctx context.Context, dim Dimension, gran Granularity, from, to string) (*Usage, error) {
 	col, err := dim.column()
 	if err != nil {
 		return nil, err
@@ -276,17 +334,31 @@ func (s *Store) Aggregate(ctx context.Context, dim Dimension, gran Granularity) 
 	if err != nil {
 		return nil, err
 	}
+	if err := checkRange(gran, from, to); err != nil {
+		return nil, err
+	}
+
+	conds := []string{"created_at IS NOT NULL"}
+	args := []any{}
+	if from != "" {
+		conds = append(conds, "created_at >= ?")
+		args = append(args, from)
+	}
+	if to != "" {
+		conds = append(conds, "created_at < date(?, '+1 day')")
+		args = append(args, to)
+	}
 
 	query := fmt.Sprintf(`
 		SELECT %s AS bucket,
 		       COALESCE(NULLIF(%s, ''), 'unknown') AS series,
 		       SUM(total_nano_aiu) AS nano
 		FROM assistant_usage_events
-		WHERE created_at IS NOT NULL
+		WHERE %s
 		GROUP BY bucket, series
-		ORDER BY bucket ASC`, bucket, col)
+		ORDER BY bucket ASC`, bucket, col, strings.Join(conds, " AND "))
 
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

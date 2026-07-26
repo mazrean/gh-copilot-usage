@@ -58,6 +58,13 @@ const en = {
   traceMainAgent: "Main agent",
   traceInitiator: "initiator: {value}",
   dateRangeSeparator: " – ",
+  periodPrev: "Previous period",
+  periodNext: "Next period",
+  periodLatest: "Latest",
+  periodMaxHint: "Up to {count} {unit} per view",
+  periodUnitDays: "days",
+  periodUnitWeeks: "weeks",
+  periodUnitMonths: "months",
 } as const;
 
 type TranslationKey = keyof typeof en;
@@ -117,6 +124,13 @@ const ja: Record<TranslationKey, string> = {
   traceMainAgent: "メインエージェント",
   traceInitiator: "initiator: {value}",
   dateRangeSeparator: " 〜 ",
+  periodPrev: "前の期間",
+  periodNext: "次の期間",
+  periodLatest: "最新",
+  periodMaxHint: "一度に表示できるのは最大{count}{unit}",
+  periodUnitDays: "日",
+  periodUnitWeeks: "週",
+  periodUnitMonths: "ヶ月",
 };
 
 const dictionaries: Record<Locale, Record<TranslationKey, string>> = { ja, en };

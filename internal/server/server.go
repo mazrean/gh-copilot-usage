@@ -42,8 +42,10 @@ func New(st *store.Store, bc *billing.Client) http.Handler {
 		if gran == "" {
 			gran = store.GranDay
 		}
+		from := r.URL.Query().Get("from")
+		to := r.URL.Query().Get("to")
 
-		usage, err := st.Aggregate(r.Context(), dim, gran)
+		usage, err := st.Aggregate(r.Context(), dim, gran, from, to)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
