@@ -38,6 +38,8 @@ func run() error {
 		jsonOut bool
 		dim     string
 		gran    string
+		from    string
+		to      string
 	)
 	defaultDB, err := store.DefaultDBPath()
 	if err != nil {
@@ -50,6 +52,8 @@ func run() error {
 	flag.BoolVar(&jsonOut, "json", false, "print aggregated usage as JSON and exit (no server)")
 	flag.StringVar(&dim, "dimension", "model", "stacking dimension for --json: model|session")
 	flag.StringVar(&gran, "granularity", "day", "time bucket for --json: day|week|month")
+	flag.StringVar(&from, "from", "", "for --json: only include usage on/after this date (YYYY-MM-DD)")
+	flag.StringVar(&to, "to", "", "for --json: only include usage on/before this date (YYYY-MM-DD)")
 	flag.Parse()
 
 	st, err := store.Open(dbPath)
@@ -59,7 +63,7 @@ func run() error {
 	defer st.Close()
 
 	if jsonOut {
-		usage, err := st.Aggregate(context.Background(), store.Dimension(dim), store.Granularity(gran))
+		usage, err := st.Aggregate(context.Background(), store.Dimension(dim), store.Granularity(gran), from, to)
 		if err != nil {
 			return err
 		}

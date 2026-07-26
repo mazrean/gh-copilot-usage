@@ -61,6 +61,14 @@ export default defineConfig({
     "modal-section-title": "text-[0.85rem] font-semibold mt-4 mb-2",
     "turn-item": "border border-border rounded-md px-3 py-2.5 mb-2",
     "page-title": "text-[1.25rem] font-semibold m-0 mb-4 pb-3 border-b border-border",
+    "period-control": "flex items-center gap-2 flex-wrap",
+    "period-nav-btn":
+      "bg-transparent border border-border rounded-md text-fg text-[0.9rem] w-7 h-7 leading-none cursor-pointer hover:bg-hover disabled:opacity-40 disabled:cursor-not-allowed focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
+    "period-date-input":
+      "bg-card border border-border rounded-md text-fg text-[0.85rem] px-2 py-1 [color-scheme:light_dark] focus-visible:[outline:2px_solid_var(--focus-ring)] focus-visible:[outline-offset:-2px]",
+    "period-sep": "text-muted text-[0.85rem]",
+    "period-latest-btn": "disabled:opacity-40 disabled:cursor-not-allowed",
+    "period-hint": "text-[0.75rem] text-muted",
   },
   preflights: [
     {
@@ -126,7 +134,7 @@ export default defineConfig({
           padding: 24px;
         }
         usage-dashboard, usage-summary-cards, usage-chart, session-detail-modal, usage-toggle-group,
-        breakdown-pie-chart, turn-usage-chart {
+        breakdown-pie-chart, turn-usage-chart, usage-period-control {
           display: block;
         }
       `,
