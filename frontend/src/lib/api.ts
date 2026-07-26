@@ -121,8 +121,10 @@ async function fetchJSON<T>(url: string): Promise<{ ok: boolean; status: number;
   return { ok: res.ok, status: res.status, data };
 }
 
-export function fetchUsage(dimension: Dimension, granularity: Granularity) {
+export function fetchUsage(dimension: Dimension, granularity: Granularity, from = "", to = "") {
   const params = new URLSearchParams({ dimension, granularity });
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
   return fetchJSON<Usage>(`/api/usage?${params}`);
 }
 
