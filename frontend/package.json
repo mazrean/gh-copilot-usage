@@ -2,14 +2,14 @@
   "name": "gh-copilot-usage-frontend",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.17.0",
+  "packageManager": "pnpm@11.20.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@primer/primitives": "11.9.0",
+    "@primer/primitives": "11.10.0",
     "chart.js": "^4.5.1",
     "lit": "^3.3.3"
   },
