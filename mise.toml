@@ -2,7 +2,7 @@
 "github:microsoft/apm" = "latest"
 gh = "latest"
 
-go = "1.26"
+go = "1.27.0"
 "go:golang.org/x/tools/gopls" = "latest"
 goreleaser = "2"
 
