@@ -7,7 +7,7 @@ go = "1.26"
 goreleaser = "2"
 
 node = "26.8.1"
-pnpm = "12.3.4"
+pnpm = "12.4.2"
 
 [tasks."build:frontend"]
 description = "Build the Lit + UnoCSS frontend into internal/server/web (go:embed target)"
