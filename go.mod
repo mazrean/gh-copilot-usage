@@ -7,7 +7,7 @@ require (
 	github.com/cli/go-gh/v2 v2.16.1
 	golang.org/x/tools v0.50.0
 	honnef.co/go/tools v0.8.1
-	modernc.org/sqlite v1.59.0
+	modernc.org/sqlite v1.61.1
 )
 
 require (
